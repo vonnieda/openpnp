@@ -127,6 +127,7 @@ public class JobPanel extends JPanel {
 
     private final JobPlacementsPanel jobPlacementsPanel;
     private final JobPastePanel jobPastePanel;
+    private final JobReflowPanel jobReflowPanel;
     
     private JTabbedPane tabbedPane;
 
@@ -283,6 +284,7 @@ public class JobPanel extends JPanel {
 
         jobPastePanel = new JobPastePanel(this);
         jobPlacementsPanel = new JobPlacementsPanel(this);
+        jobReflowPanel = new JobReflowPanel(this);
 
         add(splitPane);
 
@@ -307,6 +309,9 @@ public class JobPanel extends JPanel {
                 if (machine.getJobProcessors().get(JobProcessor.Type.PickAndPlace) != null) {
                     tabbedPane.addTab("Pick and Place", null, jobPlacementsPanel, null);
                 }
+                if (machine.getJobProcessors().get(JobProcessor.Type.Reflow) != null) {
+                    tabbedPane.addTab("Reflow", null, jobReflowPanel, null);
+                }
                 
                 // Create an empty Job if one is not loaded
                 if (JobPanel.this.jobProcessor.getJob() == null) {
@@ -324,6 +329,9 @@ public class JobPanel extends JPanel {
         }
         else if (activeTabTitle.equals("Pick and Place")) {
             return JobProcessor.Type.PickAndPlace;
+        }
+        else if (activeTabTitle.equals("Reflow")) {
+            return JobProcessor.Type.Reflow;
         }
         else {
             throw new Error("Unknown job tab title: " + activeTabTitle);
