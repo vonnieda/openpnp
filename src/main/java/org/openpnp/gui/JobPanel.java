@@ -172,6 +172,7 @@ public class JobPanel extends JPanel {
                                 .setEnabled(boardLocation != null);
                         jobPlacementsPanel.setBoardLocation(boardLocation);
                         jobPastePanel.setBoardLocation(boardLocation);
+                        jobReflowPanel.setBoardLocation(boardLocation);
                     }
                 });
 
@@ -373,6 +374,8 @@ public class JobPanel extends JPanel {
      * @param jobProcessor
      */
     private void setJobProcessor(JobProcessor jobProcessor) {
+        // TODO: Really should unregister and re-register all listeners, not
+        // just ours.
         Job job = null;
         if (this.jobProcessor != null) {
             job = this.jobProcessor.getJob();
@@ -380,10 +383,12 @@ public class JobPanel extends JPanel {
                 throw new AssertionError("this.jobProcessor.getState() != JobProcessor.JobState.Stopped");
             }
             this.jobProcessor.removeListener(jobProcessorListener);
+            this.jobProcessor.removeListener(jobReflowPanel.jobProcessorListener);
             this.jobProcessor.setDelegate(null);
         }
         this.jobProcessor = jobProcessor;
         jobProcessor.addListener(jobProcessorListener);
+        jobProcessor.addListener(jobReflowPanel.jobProcessorListener);
         jobProcessor.setDelegate(jobProcessorDelegate);
         if (job != null) {
             jobProcessor.load(job);
@@ -676,6 +681,7 @@ public class JobPanel extends JPanel {
             }
             jobPlacementsPanel.setBoardLocation(getSelectedBoardLocation());
             jobPastePanel.setBoardLocation(getSelectedBoardLocation());
+            jobReflowPanel.setBoardLocation(getSelectedBoardLocation());
         }
         catch (Exception e) {
             MessageBoxes.errorBox(getTopLevelAncestor(), "Import Failed", e);
