@@ -73,10 +73,10 @@ import org.openpnp.gui.tablemodel.BoardLocationsTableModel;
 import org.openpnp.model.Board;
 import org.openpnp.model.Board.Side;
 import org.openpnp.model.BoardLocation;
+import org.openpnp.model.BoardPad;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Job;
 import org.openpnp.model.Location;
-import org.openpnp.model.Pad;
 import org.openpnp.model.Part;
 import org.openpnp.model.Placement;
 import org.openpnp.spi.Camera;
@@ -127,7 +127,6 @@ public class JobPanel extends JPanel {
 
     private final JobPlacementsPanel jobPlacementsPanel;
     private final JobPastePanel jobPastePanel;
-    private final JobReflowPanel jobReflowPanel;
     
     private JTabbedPane tabbedPane;
 
@@ -172,7 +171,6 @@ public class JobPanel extends JPanel {
                                 .setEnabled(boardLocation != null);
                         jobPlacementsPanel.setBoardLocation(boardLocation);
                         jobPastePanel.setBoardLocation(boardLocation);
-                        jobReflowPanel.setBoardLocation(boardLocation);
                     }
                 });
 
@@ -182,8 +180,7 @@ public class JobPanel extends JPanel {
                 CameraView cameraView = MainFrame.cameraPanel
                         .getSelectedCameraView();
                 if (cameraView != null) {
-                    cameraView
-                            .removeReticle(JobPanel.this.getClass().getName());
+                    cameraView.removeReticle(JobPanel.class.getName());
                 }
             }
         });
@@ -285,7 +282,6 @@ public class JobPanel extends JPanel {
 
         jobPastePanel = new JobPastePanel(this);
         jobPlacementsPanel = new JobPlacementsPanel(this);
-        jobReflowPanel = new JobReflowPanel(this);
 
         add(splitPane);
 
@@ -310,9 +306,6 @@ public class JobPanel extends JPanel {
                 if (machine.getJobProcessors().get(JobProcessor.Type.PickAndPlace) != null) {
                     tabbedPane.addTab("Pick and Place", null, jobPlacementsPanel, null);
                 }
-                if (machine.getJobProcessors().get(JobProcessor.Type.Reflow) != null) {
-                    tabbedPane.addTab("Reflow", null, jobReflowPanel, null);
-                }
                 
                 // Create an empty Job if one is not loaded
                 if (JobPanel.this.jobProcessor.getJob() == null) {
@@ -330,9 +323,6 @@ public class JobPanel extends JPanel {
         }
         else if (activeTabTitle.equals("Pick and Place")) {
             return JobProcessor.Type.PickAndPlace;
-        }
-        else if (activeTabTitle.equals("Reflow")) {
-            return JobProcessor.Type.Reflow;
         }
         else {
             throw new Error("Unknown job tab title: " + activeTabTitle);
@@ -374,8 +364,6 @@ public class JobPanel extends JPanel {
      * @param jobProcessor
      */
     private void setJobProcessor(JobProcessor jobProcessor) {
-        // TODO: Really should unregister and re-register all listeners, not
-        // just ours.
         Job job = null;
         if (this.jobProcessor != null) {
             job = this.jobProcessor.getJob();
@@ -383,12 +371,10 @@ public class JobPanel extends JPanel {
                 throw new AssertionError("this.jobProcessor.getState() != JobProcessor.JobState.Stopped");
             }
             this.jobProcessor.removeListener(jobProcessorListener);
-            this.jobProcessor.removeListener(jobReflowPanel.jobProcessorListener);
             this.jobProcessor.setDelegate(null);
         }
         this.jobProcessor = jobProcessor;
         jobProcessor.addListener(jobProcessorListener);
-        jobProcessor.addListener(jobReflowPanel.jobProcessorListener);
         jobProcessor.setDelegate(jobProcessorDelegate);
         if (job != null) {
             jobProcessor.load(job);
@@ -667,21 +653,22 @@ public class JobPanel extends JPanel {
         try {
             Board importedBoard = boardImporter
                     .importBoard((Frame) getTopLevelAncestor());
-            Board existingBoard = getSelectedBoardLocation().getBoard();
-            for (Placement placement : importedBoard.getPlacements()) {
-                existingBoard.addPlacement(placement);
+            if (importedBoard != null) {
+                Board existingBoard = getSelectedBoardLocation().getBoard();
+                for (Placement placement : importedBoard.getPlacements()) {
+                    existingBoard.addPlacement(placement);
+                }
+                for (BoardPad pad : importedBoard.getSolderPastePads()) {
+                    // TODO: This is a temporary hack until we redesign the importer
+                    // interface to be more intuitive. The Gerber importer tends
+                    // to return everything in Inches, so this is a method to
+                    // try to get it closer to what the user expects to see.
+                    pad.setLocation(pad.getLocation().convertToUnits(getSelectedBoardLocation().getLocation().getUnits()));
+                    existingBoard.addSolderPastePad(pad);
+                }
+                jobPlacementsPanel.setBoardLocation(getSelectedBoardLocation());
+                jobPastePanel.setBoardLocation(getSelectedBoardLocation());
             }
-            for (Pad pad : importedBoard.getSolderPastePads()) {
-                // TODO: This is a temporary hack until we redesign the importer
-                // interface to be more intuitive. The Gerber importer tends
-                // to return everything in Inches, so this is a method to
-                // try to get it closer to what the user expects to see.
-                pad.setLocation(pad.getLocation().convertToUnits(getSelectedBoardLocation().getLocation().getUnits()));
-                existingBoard.addSolderPastePad(pad);
-            }
-            jobPlacementsPanel.setBoardLocation(getSelectedBoardLocation());
-            jobPastePanel.setBoardLocation(getSelectedBoardLocation());
-            jobReflowPanel.setBoardLocation(getSelectedBoardLocation());
         }
         catch (Exception e) {
             MessageBoxes.errorBox(getTopLevelAncestor(), "Import Failed", e);
