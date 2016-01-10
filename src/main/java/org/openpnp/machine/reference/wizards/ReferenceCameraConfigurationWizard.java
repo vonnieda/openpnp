@@ -34,7 +34,7 @@ public class ReferenceCameraConfigurationWizard extends
     private JTextField textFieldOffY;
     private JTextField textFieldOffZ;
     private JPanel panelOffsets;
-    private JPanel panelGeneral;
+    private JPanel panelTransforms;
     private JLabel lblRotation;
     private JTextField textFieldRotation;
     private JPanel panelLocation;
@@ -123,10 +123,10 @@ public class ReferenceCameraConfigurationWizard extends
                                                         textFieldSafeZ.setColumns(10);
                                                         
         
-        panelGeneral = new JPanel();
-        panelGeneral.setBorder(new TitledBorder(null, "General", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-        contentPanel.add(panelGeneral);
-        panelGeneral.setLayout(new FormLayout(new ColumnSpec[] {
+        panelTransforms = new JPanel();
+        panelTransforms.setBorder(new TitledBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null), "Transforms", TitledBorder.LEADING, TitledBorder.TOP, null, new Color(0, 0, 0)));
+        contentPanel.add(panelTransforms);
+        panelTransforms.setLayout(new FormLayout(new ColumnSpec[] {
         		FormSpecs.RELATED_GAP_COLSPEC,
         		FormSpecs.DEFAULT_COLSPEC,
         		FormSpecs.RELATED_GAP_COLSPEC,
@@ -145,37 +145,37 @@ public class ReferenceCameraConfigurationWizard extends
         		FormSpecs.DEFAULT_ROWSPEC,}));
         
         lblRotation = new JLabel("Rotation");
-        panelGeneral.add(lblRotation, "2, 2, right, default");
+        panelTransforms.add(lblRotation, "2, 2, right, default");
         
         textFieldRotation = new JTextField();
-        panelGeneral.add(textFieldRotation, "4, 2");
+        panelTransforms.add(textFieldRotation, "4, 2");
         textFieldRotation.setColumns(10);
         
         lblOffsetX = new JLabel("Offset X");
-        panelGeneral.add(lblOffsetX, "2, 4, right, default");
+        panelTransforms.add(lblOffsetX, "2, 4, right, default");
         
         textFieldOffsetX = new JTextField();
-        panelGeneral.add(textFieldOffsetX, "4, 4");
+        panelTransforms.add(textFieldOffsetX, "4, 4");
         textFieldOffsetX.setColumns(10);
         
         lblOffsetY = new JLabel("Offset Y");
-        panelGeneral.add(lblOffsetY, "2, 6, right, default");
+        panelTransforms.add(lblOffsetY, "2, 6, right, default");
         
         textFieldOffsetY = new JTextField();
-        panelGeneral.add(textFieldOffsetY, "4, 6");
+        panelTransforms.add(textFieldOffsetY, "4, 6");
         textFieldOffsetY.setColumns(10);
         
         lblFlipX = new JLabel("Flip Vertical");
-        panelGeneral.add(lblFlipX, "2, 8, right, default");
+        panelTransforms.add(lblFlipX, "2, 8, right, default");
         
         chckbxFlipX = new JCheckBox("");
-        panelGeneral.add(chckbxFlipX, "4, 8");
+        panelTransforms.add(chckbxFlipX, "4, 8");
         
         lblFlipY = new JLabel("Flip Horizontal");
-        panelGeneral.add(lblFlipY, "2, 10, right, default");
+        panelTransforms.add(lblFlipY, "2, 10, right, default");
         
         checkBoxFlipY = new JCheckBox("");
-        panelGeneral.add(checkBoxFlipY, "4, 10");
+        panelTransforms.add(checkBoxFlipY, "4, 10");
         
         panelLocation = new JPanel();
         panelLocation.setBorder(new TitledBorder(null, "Location", TitledBorder.LEADING, TitledBorder.TOP, null, null));

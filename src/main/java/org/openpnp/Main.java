@@ -40,6 +40,12 @@ import org.slf4j.LoggerFactory;
 public class Main {
 	private static Logger logger;
 	
+	// Make sure OpenCV is loaded before anything tries to access it.
+    static {
+        nu.pattern.OpenCV.loadShared();
+        System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
+    }    
+    
 	public static String getVersion() {
 		String version = Main.class.getPackage().getImplementationVersion();
 		if (version == null) {
