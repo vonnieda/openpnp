@@ -22,23 +22,26 @@
 package org.openpnp.machine.reference.camera.wizards;
 
 import java.awt.Color;
+import java.util.List;
 
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
 import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 
 import org.jdesktop.beansbinding.AutoBinding.UpdateStrategy;
-import org.openpnp.gui.support.IntegerConverter;
-import org.openpnp.gui.support.JBindings;
 import org.openpnp.machine.reference.camera.LibuvcCamera;
+import org.openpnp.machine.reference.camera.LibuvcCamera.CameraId;
 import org.openpnp.machine.reference.wizards.ReferenceCameraConfigurationWizard;
 
 import com.jgoodies.forms.layout.ColumnSpec;
 import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.FormSpecs;
 import com.jgoodies.forms.layout.RowSpec;
-import javax.swing.JLabel;
-import javax.swing.JSlider;
 
 @SuppressWarnings("serial")
 public class LibuvcCameraConfigurationWizard extends ReferenceCameraConfigurationWizard {
@@ -46,6 +49,8 @@ public class LibuvcCameraConfigurationWizard extends ReferenceCameraConfiguratio
 
 	private JPanel panelGeneral;
 	private JSlider sliderExposure;
+	private JLabel lblDevice;
+	private JComboBox comboBoxCameraId;
 
 	public LibuvcCameraConfigurationWizard(
 			LibuvcCamera camera) {
@@ -60,24 +65,68 @@ public class LibuvcCameraConfigurationWizard extends ReferenceCameraConfiguratio
 				FormSpecs.RELATED_GAP_COLSPEC,
 				FormSpecs.DEFAULT_COLSPEC,
 				FormSpecs.RELATED_GAP_COLSPEC,
-				FormSpecs.DEFAULT_COLSPEC,
+				ColumnSpec.decode("default:grow"),
 				FormSpecs.RELATED_GAP_COLSPEC,
 				FormSpecs.DEFAULT_COLSPEC,},
 			new RowSpec[] {
 				FormSpecs.RELATED_GAP_ROWSPEC,
+				FormSpecs.DEFAULT_ROWSPEC,
+				FormSpecs.RELATED_GAP_ROWSPEC,
 				FormSpecs.DEFAULT_ROWSPEC,}));
 		
+		lblDevice = new JLabel("Camera ID");
+		panelGeneral.add(lblDevice, "2, 2, right, default");
+		
+		comboBoxCameraId = new JComboBox<CameraId>();
+		panelGeneral.add(comboBoxCameraId, "4, 2, fill, default");
+		
 		JLabel lblExposure = new JLabel("Exposure");
-		panelGeneral.add(lblExposure, "2, 2");
+		panelGeneral.add(lblExposure, "2, 4");
 		
 		sliderExposure = new JSlider();
-		sliderExposure.setMaximum(1000);
-		panelGeneral.add(sliderExposure, "4, 2");
+		sliderExposure.setPaintTicks(true);
+		sliderExposure.setPaintLabels(true);
+		sliderExposure.setMinimum(1);
+		sliderExposure.setMaximum(10000);
+		panelGeneral.add(sliderExposure, "4, 4");
+		
+		comboBoxCameraId.addPopupMenuListener(new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                refreshCameraIdList();
+            }
+            
+            @Override
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+            }
+            
+            @Override
+            public void popupMenuCanceled(PopupMenuEvent e) {
+            }
+        });
+		refreshCameraIdList();
 	}
+	
+    private void refreshCameraIdList() {
+    	comboBoxCameraId.removeAllItems();
+        boolean exists = false;
+        List<CameraId> cameras = camera.getCameraIds();
+        for (CameraId camera : cameras) {
+        	comboBoxCameraId.addItem(camera);
+//            if (portName.equals(driver.getPortName())) {
+//                exists = true;
+//            }
+        }
+//        if (!exists && driver.getPortName() != null) {
+//            comboBoxPort.addItem(driver.getPortName());
+//        }
+    }
+
 
 	@Override
 	public void createBindings() {
 		bind(UpdateStrategy.READ_WRITE, camera, "exposure", sliderExposure, "value");
+		addWrappedBinding(camera, "cameraId", comboBoxCameraId, "selectedItem");
 	    super.createBindings();
 	}
 }
