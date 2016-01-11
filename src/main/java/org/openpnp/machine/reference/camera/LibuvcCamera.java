@@ -25,12 +25,15 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import javax.swing.Action;
 
 import org.bridj.IntValuedEnum;
 import org.bridj.Pointer;
+import org.openpnp.CameraListener;
 import org.openpnp.gui.support.Wizard;
 import org.openpnp.libuvc4j.UvcLibrary;
 import org.openpnp.libuvc4j.UvcLibrary.uvc_context;
@@ -44,32 +47,21 @@ import org.openpnp.machine.reference.ReferenceCamera;
 import org.openpnp.machine.reference.camera.wizards.LibuvcCameraConfigurationWizard;
 import org.openpnp.spi.PropertySheetHolder;
 import org.simpleframework.xml.Attribute;
+import org.simpleframework.xml.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * TODO:
- * connect on first capture instead of in constructor
- * enable/disable AE
- * AE settings in config and applied during startup
- * camera selection based on list
- * "uniqueness" as a combination of every damn thing we can find
- * 		specifically should handle two ELP cams hooked up
- * fix errors on shutdown when something was not fully initialized
- * add decoding for non mjpeg frames
+ * when finding the matching camera make sure it's at least a match for the
+ * primary three identifiers (vid, pid, serial) or don't consider it at all
  * resolution, frame format, fps settings - these can probably be ganged together
- * apply transforms
- * need to think about how much data to store for each ID
- * 		if there are no duplicate IDs (without bus info) we only want to store
- * 		that so that we aren't bus dependent
- * 
- * 		but if we don't store bus info and they plug in a dupe then when we
- * 		start we might not identify correctly. but in that case they will
- * 		see the wrong camera and can reset the ID which will now include
- * 		the non dupe info.
- * 
- * 		so when we build the ID list we need to check for existing and if
- * 		it exists use the more specific ID
+ * Look at uvc_get_input_terminals for discovering capabilities with
+ * https://github.com/saki4510t/UVCCamera/blob/master/libuvccamera/src/main/jni/UVCCamera/UVCCamera.cpp#L270
  */
 public class LibuvcCamera extends ReferenceCamera {
+	static private Logger logger = LoggerFactory.getLogger(LibuvcCamera.class);
+	
 	static private Pointer<Pointer<uvc_context>> ctx;
 	static {
 		IntValuedEnum<uvc_error> err;
@@ -81,74 +73,257 @@ public class LibuvcCamera extends ReferenceCamera {
 		}
 	}
 
+	@Element(required=false)
+	private CameraId cameraId = null;
 	@Attribute(required=false)
-	private int vid = 0;
-	
+	private boolean manualExposureEnabled = false;
 	@Attribute(required=false)
-	private int pid = 0;
+	private int manualExposureTime = 0;
+	@Attribute(required=false)
+	private int resolutionX = 640;
+	@Attribute(required=false)
+	private int resolutionY = 480;
+	@Attribute(required=false)
+	private int fps = 30;
+	@Attribute(required=false)
+	private UvcLibrary.uvc_frame_format frameFormat = UvcLibrary.uvc_frame_format.UVC_FRAME_FORMAT_MJPEG;
 	
-	private Pointer<Pointer<uvc_device>> dev;
-	private Pointer<Pointer<uvc_device_handle>> devh;
-	private Pointer<uvc_stream_ctrl> ctrl;
+	private Pointer<uvc_device> dev;
+	private Pointer<uvc_device_handle> devh;
+	private boolean streaming = false;
+	
 	private BufferedImage lastFrame;
-	
-	// temporary
-	private CameraId cameraId;
 	
 	public LibuvcCamera() {
 	}
 	
-	private void connect() {
+	private synchronized void open(CameraId id) {
+		logger.debug("open {}", id);
+		if (Objects.equals(this.cameraId, id) && streaming) {
+			return;
+		}
+		
+		// first shut down the camera if it's active
+		if (streaming) {
+			UvcLibrary.uvc_stop_streaming(devh);
+			streaming = false;
+		}
+		if (devh != null) {
+			UvcLibrary.uvc_close(devh);
+			devh = null;
+		}
+		if (dev != null) {
+			UvcLibrary.uvc_unref_device(dev);
+			dev = null;
+		}
+
+		if (id == null) {
+			return;
+		}
+		
 		IntValuedEnum<uvc_error> err;
 		
-		dev = Pointer.allocatePointer(uvc_device.class);
-		System.out.println(vid);
-		System.out.println(pid);
-		err = UvcLibrary.uvc_find_device(ctx.get(), dev, vid, pid, null);
-		if (err != uvc_error.UVC_SUCCESS) {
-			System.out.println("uvc_find_device " + err);
+		// find the best match for the device
+		Pointer<uvc_device> dev = findDevice(id);
+		if (dev == null) {
+			logger.error("No device found for CameraId {}", id);
 			return;
 		}
 		
-		devh = Pointer.allocatePointer(uvc_device_handle.class);
-		err = UvcLibrary.uvc_open(dev.get(), devh);
+		// open it
+		Pointer<Pointer<uvc_device_handle>> devh = Pointer.allocatePointer(uvc_device_handle.class);
+		err = UvcLibrary.uvc_open(dev, devh);
 		if (err != uvc_error.UVC_SUCCESS) {
-			System.out.println("uvc_open " + err);
+			logger.error("uvc_open {}", err);
 			return;
 		}
 		
-//		UVC_AUTO_EXPOSURE_MODE_MANUAL (1) - manual exposure time, manual iris
-//		UVC_AUTO_EXPOSURE_MODE_AUTO (2) - auto exposure time, auto iris
-//		UVC_AUTO_EXPOSURE_MODE_SHUTTER_PRIORITY (4) - manual exposure time, auto iris
-//		UVC_AUTO_EXPOSURE_MODE_APERTURE_PRIORITY (8) - auto exposure time, manual iris
-		err = UvcLibrary.uvc_set_ae_mode(devh.get(), (byte) 1);
-		if (err != uvc_error.UVC_SUCCESS) {
-			System.out.println("uvc_set_ae_mode " + err);
-			return;
-		}
-		
-		ctrl = Pointer.allocate(uvc_stream_ctrl.class);
+		// set up the stream control parameters
+		// TODO: configure
+		Pointer<uvc_stream_ctrl> ctrl = Pointer.allocate(uvc_stream_ctrl.class);
 		err = UvcLibrary.uvc_get_stream_ctrl_format_size(
-		          devh.get(), ctrl,
-		          UvcLibrary.uvc_frame_format.UVC_FRAME_FORMAT_MJPEG,
-		          640, 480, 30);
+		          devh.get(), 
+		          ctrl, 
+		          frameFormat, 
+		          resolutionX, 
+		          resolutionY, 
+		          fps);
 		if (err != uvc_error.UVC_SUCCESS) {
-			System.out.println("uvc_get_stream_ctrl_format_size " + err);
+			logger.error("uvc_get_stream_ctrl_format_size {}", err);
 			return;
 		}
+
+		this.dev = dev;
+		this.devh = devh.get();
+		this.streaming = true;
 		
+		// start streaming
 		err = UvcLibrary.uvc_start_streaming(devh.get(), ctrl, cb.toPointer(), null, (byte) 0);
 		if (err != uvc_error.UVC_SUCCESS) {
-			System.out.println("uvc_start_streaming " + err);
+			logger.error("uvc_start_streaming {}", err);
 			return;
 		}
+		
+		setManualExposureEnabled(this.manualExposureEnabled);
+		setManualExposureTime(this.manualExposureTime);
 	}
+	
+//	private void readSettings() {
+//		IntValuedEnum<uvc_error> err;
+//		Pointer<Byte> b = Pointer.allocateByte();
+//		Pointer<Short> s = Pointer.allocateShort();
+//		Pointer<Integer> i = Pointer.allocateInt();
+//		
+//		err = UvcLibrary.uvc_get_ae_mode(devh, b, UvcLibrary.uvc_req_code.UVC_GET_DEF);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_ae_mode {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_ae_mode UVC_GET_DEF {}", b.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_ae_mode(devh, b, UvcLibrary.uvc_req_code.UVC_GET_MIN);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_ae_mode {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_ae_mode UVC_GET_MIN {}", b.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_ae_mode(devh, b, UvcLibrary.uvc_req_code.UVC_GET_MAX);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_ae_mode {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_ae_mode UVC_GET_MAX {}", b.getByte());
+//		}
+//		
+//		
+//		
+//		
+//		err = UvcLibrary.uvc_get_exposure_abs(devh, i, UvcLibrary.uvc_req_code.UVC_GET_DEF);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_exposure_abs {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_exposure_abs UVC_GET_DEF {}", b.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_exposure_abs(devh, i, UvcLibrary.uvc_req_code.UVC_GET_MIN);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_exposure_abs {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_exposure_abs UVC_GET_MIN {}", b.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_exposure_abs(devh, i, UvcLibrary.uvc_req_code.UVC_GET_MAX);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_exposure_abs {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_exposure_abs UVC_GET_MAX {}", b.getByte());
+//		}
+//		
+//		
+//		
+//		
+//		err = UvcLibrary.uvc_get_iris_abs(devh, s, UvcLibrary.uvc_req_code.UVC_GET_DEF);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_iris_abs {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_iris_abs UVC_GET_DEF {}", s.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_iris_abs(devh, s, UvcLibrary.uvc_req_code.UVC_GET_MIN);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_iris_abs {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_iris_abs UVC_GET_MIN {}", s.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_iris_abs(devh, s, UvcLibrary.uvc_req_code.UVC_GET_MAX);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_iris_abs {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_iris_abs UVC_GET_MAX {}", s.getByte());
+//		}
+//		
+//		
+//		
+//		
+//		err = UvcLibrary.uvc_get_brightness(devh, s, UvcLibrary.uvc_req_code.UVC_GET_DEF);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_brightness {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_brightness UVC_GET_DEF {}", s.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_brightness(devh, s, UvcLibrary.uvc_req_code.UVC_GET_MIN);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_brightness {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_brightness UVC_GET_MIN {}", s.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_brightness(devh, s, UvcLibrary.uvc_req_code.UVC_GET_MAX);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_brightness {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_brightness UVC_GET_MAX {}", s.getByte());
+//		}
+//		
+//		
+//		
+//		
+//		err = UvcLibrary.uvc_get_gain(devh, s, UvcLibrary.uvc_req_code.UVC_GET_DEF);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_gain {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_gain UVC_GET_DEF {}", s.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_gain(devh, s, UvcLibrary.uvc_req_code.UVC_GET_MIN);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_gain {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_gain UVC_GET_MIN {}", s.getByte());
+//		}
+//		
+//		err = UvcLibrary.uvc_get_gain(devh, s, UvcLibrary.uvc_req_code.UVC_GET_MAX);
+//		if (err != uvc_error.UVC_SUCCESS) {
+//			logger.error("uvc_get_gain {}", err);
+//		}
+//		else {
+//			logger.info("uvc_get_gain UVC_GET_MAX {}", s.getByte());
+//		}
+//	}
+	
+	@Override
+	public synchronized void close() throws IOException {
+		super.close();
+		open(null);
+		// TODO: check if we're the last instance and shut down the context if
+		// so.
+//		if (ctx != null) {
+//			UvcLibrary.uvc_exit(ctx.get());
+//		}
+	}	
 	
 	UvcLibrary.uvc_frame_callback_t cb = new UvcLibrary.uvc_frame_callback_t() {
 		@Override
 		public void apply(Pointer<uvc_frame> frame, Pointer<?> user_ptr) {
 			BufferedImage image = decodeFrame(frame);
 			if (image != null) {
+				image = transformImage(image);
 				lastFrame = image;
 			}
 			broadcastCapture(lastFrame);
@@ -156,116 +331,74 @@ public class LibuvcCamera extends ReferenceCamera {
 	};
 	
 	private static BufferedImage decodeFrame(Pointer<uvc_frame> frame) {
+		boolean mjpeg = false;
 		// Have to use .equals here instead of == otherwise we always get
 		// UVC_FRAME_FORMAT_ANY. Possibly a generation error, but not sure.
 		if (frame.get().frame_format().equals(UvcLibrary.uvc_frame_format.UVC_FRAME_FORMAT_MJPEG)) {
-			return decodeMjpegFrame(frame);
+			mjpeg = true;
 		}
-		else {
-			return decodeNonMjpegFrame(frame);
-		}
-	}
-	
-	private static BufferedImage decodeNonMjpegFrame(Pointer<uvc_frame> frame) {
-		return null;
-	}
-	
-	private static BufferedImage decodeMjpegFrame(Pointer<uvc_frame> frame) {
-		IntValuedEnum<UvcLibrary.uvc_error> err;
+		
 		int width = frame.get().width();
 		int height = frame.get().height();
 		
-		Pointer<uvc_frame> rgbFrame = UvcLibrary.uvc_allocate_frame(width * height * 3);
-		if (rgbFrame == null || rgbFrame.get() == null) {
-			System.out.println("uvc_allocate_frame");
+		IntValuedEnum<UvcLibrary.uvc_error> err;
+		Pointer<uvc_frame> tmpFrame = UvcLibrary.uvc_allocate_frame(width * height * 3);
+		if (tmpFrame == null || tmpFrame.get() == null) {
+			logger.error("uvc_allocate_frame");
 			return null;
 		}
 		
-		err = UvcLibrary.uvc_mjpeg2rgb(frame, rgbFrame);
+		if (mjpeg) {
+			err = UvcLibrary.uvc_mjpeg2rgb(frame, tmpFrame);
+		}
+		else {
+			err = UvcLibrary.uvc_any2bgr(frame, tmpFrame);
+		}
 		if (err != UvcLibrary.uvc_error.UVC_SUCCESS) {
-			System.out.println("uvc_mjpeg2rgb " + err);
-			UvcLibrary.uvc_free_frame(rgbFrame);
+			logger.error("{} {}", mjpeg ? "uvc_mjpeg2rgb" : "uvc_any2bgr", err);
+			UvcLibrary.uvc_free_frame(tmpFrame);
 			return null;
 		}
 
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
 		byte[] dst = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
-		byte[] src = rgbFrame.get().data().getBytes(width * height * 3);
-		// copy bytes over swapping red and blue to convert from RGB to BGR
-		for (int i = 0, count = width * height * 3; i < count; i += 3) {
-			dst[i + 0] = src[i + 2];
-			dst[i + 1] = src[i + 1];
-			dst[i + 2] = src[i + 0];
+		byte[] src = tmpFrame.get().data().getBytes(width * height * 3);
+		if (mjpeg) {
+			// copy bytes over swapping red and blue to convert from RGB to BGR
+			for (int i = 0, count = width * height * 3; i < count; i += 3) {
+				dst[i + 0] = src[i + 2];
+				dst[i + 1] = src[i + 1];
+				dst[i + 2] = src[i + 0];
+			}
+		}
+		else {
+			System.arraycopy(src, 0, dst, 0, src.length);
 		}
 		
-		UvcLibrary.uvc_free_frame(rgbFrame);
+		UvcLibrary.uvc_free_frame(tmpFrame);
 		
 		return image;
 	}
 	
 	@Override
-	public BufferedImage capture() {
+	public synchronized void startContinuousCapture(CameraListener listener, int maximumFps) {
+		open(cameraId);
+		super.startContinuousCapture(listener, maximumFps);
+	}
+	
+	@Override
+	public synchronized BufferedImage capture() {
+		if (!streaming) {
+			open(this.cameraId);
+		}
 		return lastFrame;
 	}
 
-	@Override
-	public Wizard getConfigurationWizard() {
-		return new LibuvcCameraConfigurationWizard(this);
-	}
-
-	@Override
-	public String getPropertySheetHolderTitle() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public PropertySheetHolder[] getChildPropertySheetHolders() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public PropertySheet[] getPropertySheets() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Action[] getPropertySheetHolderActions() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
-	public int getExposure() {
-		if (devh == null) {
-			return 0;
-		}
-		Pointer<Integer> val = Pointer.allocateInt();
-		UvcLibrary.uvc_get_exposure_abs(devh.get(), val, UvcLibrary.uvc_req_code.UVC_GET_CUR);
-		return val.getInt();
-	}
-	
-	public void setExposure(int val) {
-		if (devh == null) {
-			return;
-		}
-		UvcLibrary.uvc_set_exposure_abs(devh.get(), val);
-	}
-	
-	public CameraId getCameraId() {
-		return cameraId;
-	}
-	
-	public void setCameraId(CameraId cameraId) {
-		this.cameraId = cameraId;
-	}
-	
 	/**
 	 * Returns a list of uniquely identifiable camera IDs. 
 	 * @return
 	 */
-	public List<CameraId> getCameraIds() {
+	public List<CameraId> getCameraIds(boolean freeDevs) {
 		List<CameraId> ids = new ArrayList<>();
 		
 		IntValuedEnum<uvc_error> err;
@@ -296,19 +429,140 @@ public class LibuvcCamera extends ReferenceCamera {
 			String product = getString(desc.get().get().product());
 			String serial = getString(desc.get().get().serialNumber());
 			
-			CameraId cameraInfo = new CameraId(busNumber, devAddress, 
+			CameraId id = new CameraId(busNumber, devAddress, 
 					vendorId, productId, manufacturer, product, serial);
+			id.dev = dev;
 			
-			ids.add(cameraInfo);
+			ids.add(id);
 			
 			UvcLibrary.uvc_free_device_descriptor(desc.get());
 		}
-		UvcLibrary.uvc_free_device_list(devList.get(), (byte) 1);
+		UvcLibrary.uvc_free_device_list(devList.get(), freeDevs ? (byte) 1 : 0);
 		
 		return ids;
 	}
 	
-	public static String getString(Pointer<Byte> p) {
+	public CameraId getCameraId() {
+		return cameraId;
+	}
+	
+	public void setCameraId(CameraId cameraId) {
+		this.cameraId = cameraId;
+		open(cameraId);
+	}
+	
+	public boolean isManualExposureEnabled() {
+		return manualExposureEnabled;
+	}
+	
+	public synchronized void setManualExposureEnabled(boolean enabled) {
+		if (devh != null) {
+			IntValuedEnum<uvc_error> err;
+			if (enabled) {
+				err = UvcLibrary.uvc_set_ae_mode(devh, (byte) 1);
+				if (err != uvc_error.UVC_SUCCESS) {
+					logger.error("uvc_set_ae_mode {}", err);
+					return;
+				}
+			}
+			else {
+				// reset to default
+				Pointer<Byte> val = Pointer.allocateByte();
+				err = UvcLibrary.uvc_get_ae_mode(devh, val, UvcLibrary.uvc_req_code.UVC_GET_DEF);
+				if (err != uvc_error.UVC_SUCCESS) {
+					logger.error("uvc_get_ae_mode {}", err);
+					return;
+				}
+				err = UvcLibrary.uvc_set_ae_mode(devh, val.getByte());
+				if (err != uvc_error.UVC_SUCCESS) {
+					logger.error("uvc_set_ae_mode {}", err);
+					return;
+				}
+			}
+		}
+		this.manualExposureEnabled = enabled;
+	}
+	
+	public int getManualExposureTime() {
+		return manualExposureTime;
+	}
+	
+	/**
+	 * Set the manual exposure time in 1/10000ths of a second.
+	 * @param val
+	 */
+	public synchronized void setManualExposureTime(int val) {
+		if (devh != null) {
+			IntValuedEnum<uvc_error> err;
+			err = UvcLibrary.uvc_set_exposure_abs(devh, val);
+			if (err != uvc_error.UVC_SUCCESS) {
+				logger.error("uvc_set_exposure_abs {}", err);
+				return;
+			}
+		}
+		this.manualExposureTime = val;
+	}
+	
+	public int getResolutionX() {
+		return resolutionX;
+	}
+
+	public void setResolutionX(int resolutionX) {
+		this.resolutionX = resolutionX;
+	}
+
+	public int getResolutionY() {
+		return resolutionY;
+	}
+
+	public void setResolutionY(int resolutionY) {
+		this.resolutionY = resolutionY;
+	}
+
+	public int getFps() {
+		return fps;
+	}
+
+	public void setFps(int fps) {
+		this.fps = fps;
+	}
+
+	public UvcLibrary.uvc_frame_format getFrameFormat() {
+		return frameFormat;
+	}
+
+	public void setFrameFormat(UvcLibrary.uvc_frame_format frameFormat) {
+		this.frameFormat = frameFormat;
+	}
+
+	private Pointer<uvc_device> findDevice(CameraId id) {
+		// sort by least to most specific match and return the first object
+		// or null
+		List<CameraId> cameraIds = getCameraIds(false);
+		if (cameraIds.isEmpty()) {
+			return null;
+		}
+		
+		cameraIds.sort(new Comparator<CameraId>() {
+			@Override
+			public int compare(CameraId o1, CameraId o2) {
+				return o2.compareTo(id) - o1.compareTo(id);
+			}
+		});
+		
+		CameraId foundId = cameraIds.remove(0);
+		logger.debug("Searched for {}, found {}", id, foundId);
+
+		// since we called getCameraIds without freeing the devices we
+		// now need to free the ones we aren't using
+		for (CameraId tmpId : cameraIds) {
+			UvcLibrary.uvc_unref_device(tmpId.dev);
+		}
+		
+		return foundId.dev;
+	}
+	
+	private static String getString(Pointer<Byte> p) {
 		if (p == null) {
 			return null;
 		}
@@ -316,22 +570,61 @@ public class LibuvcCamera extends ReferenceCamera {
 	}
 	
 	@Override
-	public void close() throws IOException {
-		super.close();
-		UvcLibrary.uvc_stop_streaming(devh.get());
-		UvcLibrary.uvc_close(devh.get());
-		UvcLibrary.uvc_unref_device(dev.get());
-		UvcLibrary.uvc_exit(ctx.get());
-	}	
+	public Wizard getConfigurationWizard() {
+		return new LibuvcCameraConfigurationWizard(this);
+	}
+
+	@Override
+	public String getPropertySheetHolderTitle() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public PropertySheetHolder[] getChildPropertySheetHolders() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public PropertySheet[] getPropertySheets() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Action[] getPropertySheetHolderActions() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
-	public class CameraId {
-		final public byte busNumber;
-		final public byte devAddress;
-		final public int vendorId;
-		final public int productId;
-		final public String manufacturer;
-		final public String product;
-		final public String serial;
+	public static class CameraId implements Comparable<CameraId> {
+		@Attribute(required=true)
+		private byte busNumber;
+
+		@Attribute(required=true)
+		private byte devAddress;
+		
+		@Attribute(required=true)
+		private int vendorId;
+		
+		@Attribute(required=true)
+		private int productId;
+		
+		@Attribute(required=false)
+		private String manufacturer;
+		
+		@Attribute(required=false)
+		private String product;
+		
+		@Attribute(required=false)
+		private String serial;
+		
+		public volatile Pointer<uvc_device> dev;
+		
+		public CameraId() {
+			
+		}
 		
 		public CameraId(byte busNumber, byte devAddress, int vendorId, 
 				int productId, String manufacturer, 
@@ -345,6 +638,34 @@ public class LibuvcCamera extends ReferenceCamera {
 			this.serial = serial;
 		}
 		
+		public byte getBusNumber() {
+			return busNumber;
+		}
+
+		public byte getDevAddress() {
+			return devAddress;
+		}
+
+		public int getVendorId() {
+			return vendorId;
+		}
+
+		public int getProductId() {
+			return productId;
+		}
+
+		public String getManufacturer() {
+			return manufacturer == null ? "" : manufacturer;
+		}
+
+		public String getProduct() {
+			return product == null ? "" : product;
+		}
+
+		public String getSerial() {
+			return serial == null ? "" : serial;
+		}
+
 		@Override
 		public String toString() {
 			String id = "";
@@ -371,11 +692,29 @@ public class LibuvcCamera extends ReferenceCamera {
 			return id;
 		}
 
+		public int compareTo(CameraId id) {
+			if (this.vendorId != id.vendorId) {
+				return -5;
+			}
+			if (this.productId != id.productId) {
+				return -4;
+			}
+			if (!Objects.equals(this.serial, id.serial)) {
+				return -3;
+			}
+			if (this.busNumber != id.busNumber) {
+				return -2;
+			}
+			if (this.devAddress != id.devAddress) {
+				return -1;
+			}
+			return 0;
+		}
+
 		@Override
 		public int hashCode() {
 			final int prime = 31;
 			int result = 1;
-			result = prime * result + getOuterType().hashCode();
 			result = prime * result + busNumber;
 			result = prime * result + devAddress;
 			result = prime * result + ((manufacturer == null) ? 0 : manufacturer.hashCode());
@@ -395,8 +734,6 @@ public class LibuvcCamera extends ReferenceCamera {
 			if (getClass() != obj.getClass())
 				return false;
 			CameraId other = (CameraId) obj;
-			if (!getOuterType().equals(other.getOuterType()))
-				return false;
 			if (busNumber != other.busNumber)
 				return false;
 			if (devAddress != other.devAddress)
@@ -422,9 +759,6 @@ public class LibuvcCamera extends ReferenceCamera {
 				return false;
 			return true;
 		}
-
-		private LibuvcCamera getOuterType() {
-			return LibuvcCamera.this;
-		}
+		
 	}
 }
