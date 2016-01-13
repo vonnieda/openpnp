@@ -55,9 +55,11 @@ import org.slf4j.LoggerFactory;
  * TODO:
  * when finding the matching camera make sure it's at least a match for the
  * primary three identifiers (vid, pid, serial) or don't consider it at all
- * resolution, frame format, fps settings - these can probably be ganged together
+ * 
  * Look at uvc_get_input_terminals for discovering capabilities with
  * https://github.com/saki4510t/UVCCamera/blob/master/libuvccamera/src/main/jni/UVCCamera/UVCCamera.cpp#L270
+ * 
+ * Mark https://github.com/openpnp/openpnp/issues/73 complete.
  */
 public class LibuvcCamera extends ReferenceCamera {
 	static private Logger logger = LoggerFactory.getLogger(LibuvcCamera.class);
