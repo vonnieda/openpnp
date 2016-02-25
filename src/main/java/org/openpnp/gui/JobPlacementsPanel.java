@@ -30,9 +30,6 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableCellRenderer;
 
 import org.openpnp.gui.components.AutoSelectTextTable;
-import org.openpnp.gui.components.CameraView;
-import org.openpnp.gui.components.reticle.PackageReticle;
-import org.openpnp.gui.components.reticle.Reticle;
 import org.openpnp.gui.support.ActionGroup;
 import org.openpnp.gui.support.Helpers;
 import org.openpnp.gui.support.Icons;
@@ -42,6 +39,7 @@ import org.openpnp.gui.support.MessageBoxes;
 import org.openpnp.gui.support.PartsComboBoxModel;
 import org.openpnp.gui.tablemodel.PlacementsTableModel;
 import org.openpnp.gui.tablemodel.PlacementsTableModel.Status;
+import org.openpnp.model.Board;
 import org.openpnp.model.Board.Side;
 import org.openpnp.model.BoardLocation;
 import org.openpnp.model.Configuration;
@@ -210,10 +208,16 @@ public class JobPlacementsPanel extends JPanel {
         JPopupMenu popupMenu = new JPopupMenu();
         
         JMenu setTypeMenu = new JMenu(setTypeAction);
-        setTypeMenu.add(new SetTypeAction(Placement.Type.Place));
-        setTypeMenu.add(new SetTypeAction(Placement.Type.Ignore));
-        setTypeMenu.add(new SetTypeAction(Placement.Type.Fiducial));
+        for (Placement.Type type : Placement.Type.values()) {
+            setTypeMenu.add(new SetTypeAction(type));
+        }
         popupMenu.add(setTypeMenu);
+
+        JMenu setSideMenu = new JMenu(setSideAction);
+        for (Board.Side side : Board.Side.values()) {
+        	setSideMenu.add(new SetSideAction(side));
+        }
+        popupMenu.add(setSideMenu);
 
         table.setComponentPopupMenu(popupMenu);        
 
@@ -242,7 +246,7 @@ public class JobPlacementsPanel extends JPanel {
     }
     
     public List<Placement> getSelections() {
-        ArrayList<Placement> placements = new ArrayList<Placement>();
+        ArrayList<Placement> placements = new ArrayList<>();
         if (boardLocation == null) {
             return placements;
         }
@@ -320,8 +324,7 @@ public class JobPlacementsPanel extends JPanel {
         public void actionPerformed(ActionEvent arg0) {
         	UiUtils.submitUiMachineTask(() -> {
                 Location location = Utils2D.calculateBoardPlacementLocation(
-                		boardLocation.getLocation(), 
-                		boardLocation.getSide(), 
+                		boardLocation,
                 		getSelection().getLocation());
 
                 Camera camera = MainFrame
@@ -344,25 +347,14 @@ public class JobPlacementsPanel extends JPanel {
 
         @Override
         public void actionPerformed(ActionEvent arg0) {
-            Location placementLocation = Utils2D
-                    .calculateBoardPlacementLocation(boardLocation
-                            .getLocation(), boardLocation
-                            .getSide(), getSelection().getLocation());
+            Location location = Utils2D.calculateBoardPlacementLocation(
+            		boardLocation,
+            		getSelection().getLocation());
 
-            final Nozzle nozzle = MainFrame.machineControlsPanel
+            Nozzle nozzle = MainFrame.machineControlsPanel
                     .getSelectedNozzle();
-            final Location location = placementLocation;
-            MainFrame.machineControlsPanel.submitMachineTask(new Runnable() {
-                public void run() {
-                    try {
-                        MovableUtils.moveToLocationAtSafeZ(nozzle, location,
-                                1.0);
-                    }
-                    catch (Exception e) {
-                        MessageBoxes.errorBox(getTopLevelAncestor(),
-                                "Move Error", e);
-                    }
-                }
+            UiUtils.submitUiMachineTask(() -> {
+                MovableUtils.moveToLocationAtSafeZ(nozzle, location, 1.0);
             });
         }
     };
@@ -380,12 +372,10 @@ public class JobPlacementsPanel extends JPanel {
         	UiUtils.messageBoxOnException(() -> {
             	HeadMountable tool = MainFrame.machineControlsPanel.getSelectedTool();
             	Camera camera = tool.getHead().getDefaultCamera();
-                Location placementLocation = Utils2D.calculateBoardPlacementLocation(
-                		boardLocation.getLocation(), 
-                		getSelection().getSide(),
-                        camera.getLocation().invert(true, true, true, true));
-                getSelection().setLocation(
-                        placementLocation.invert(true, true, true, true));
+                Location placementLocation = Utils2D.calculateBoardPlacementLocationInverse(
+                		boardLocation,
+                        camera.getLocation());
+                getSelection().setLocation(placementLocation);
                 table.repaint();
         	});
         }
@@ -403,11 +393,10 @@ public class JobPlacementsPanel extends JPanel {
         public void actionPerformed(ActionEvent arg0) {
             Nozzle nozzle = MainFrame.machineControlsPanel.getSelectedNozzle();
             Location placementLocation = Utils2D
-                    .calculateBoardPlacementLocation(boardLocation
-                            .getLocation(), getSelection().getSide(),
-                            nozzle.getLocation().invert(true, true, true, true));
-            getSelection().setLocation(
-                    placementLocation.invert(true, true, true, true));
+                    .calculateBoardPlacementLocationInverse(
+                		boardLocation,
+                        nozzle.getLocation());
+                getSelection().setLocation(placementLocation);
             table.repaint();
         }
     };
@@ -423,13 +412,7 @@ public class JobPlacementsPanel extends JPanel {
         @Override
         public void actionPerformed(ActionEvent arg0) {
             Placement placement = getSelection();
-            Feeder feeder = null;
-            for (Feeder f : Configuration.get().getMachine().getFeeders()) {
-                if (f.getPart() == placement.getPart()) {
-                    feeder = f;
-                }
-            }
-            MainFrame.feedersPanel.showFeeder(feeder);
+            MainFrame.feedersPanel.showFeederForPart(placement.getPart());
         }
     };
     
@@ -458,6 +441,35 @@ public class JobPlacementsPanel extends JPanel {
         public void actionPerformed(ActionEvent arg0) {
             for (Placement placement : getSelections()) {
                 placement.setType(type);
+            }
+        }
+    };
+    
+    public final Action setSideAction = new AbstractAction() {
+        {
+            putValue(NAME, "Set Side");
+            putValue(SHORT_DESCRIPTION,
+                    "Set placement side(s) to...");
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+        }
+    };
+    
+    class SetSideAction extends AbstractAction {
+        final Board.Side side;
+        
+        public SetSideAction(Board.Side side) {
+            this.side = side;
+            putValue(NAME, side.toString());
+            putValue(SHORT_DESCRIPTION, "Set placement side(s) to " + side.toString());
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            for (Placement placement : getSelections()) {
+                placement.setSide(side);
             }
         }
     };

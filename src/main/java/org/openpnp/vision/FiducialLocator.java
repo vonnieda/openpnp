@@ -14,7 +14,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.openpnp.model.Board;
-import org.openpnp.model.Board.Side;
 import org.openpnp.model.BoardLocation;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Footprint;
@@ -35,7 +34,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Implements an algorithm for finding a set of fiducials on a board and
  * returning the correct orientation for the board. 
- * TODO: This needs to be integrated into the VisionProvider somehow.
  */
 public class FiducialLocator {
     private static final Logger logger = LoggerFactory
@@ -46,8 +44,6 @@ public class FiducialLocator {
     }
     
     public static Location locateBoard(BoardLocation boardLocation) throws Exception {
-        // TODO: finish bottom code
-        
         // Find the fids in the board
         IdentifiableList<Placement> fiducials = getFiducials(boardLocation);
         
@@ -61,45 +57,40 @@ public class FiducialLocator {
         // Find the two that are most distant from each other
         List<Placement> mostDistant = getMostDistantPlacements(fiducials);
         
-        Placement a = mostDistant.get(0);
-        Placement b = mostDistant.get(1);
+        Placement placementA = mostDistant.get(0);
+        Placement placementB = mostDistant.get(1);
 
-        logger.debug("Chose {} and {}", a.getId(), b.getId());
+        logger.debug("Chose {} and {}", placementA.getId(), placementB.getId());
         
-        Location aLoc = a.getLocation();
-        Location bLoc = b.getLocation();
-                
-        if (boardLocation.getSide() == Side.Bottom) {
-            aLoc = aLoc.invert(true, false, false, false);
-            bLoc = bLoc.invert(true, false, false, false);
-        }
-
         // Run the fiducial check on each and get their actual locations
-        Location aVisionLoc = getFiducialLocation(boardLocation, a);
-        if (aVisionLoc == null) {
+        Location actualLocationA = getFiducialLocation(boardLocation, placementA);
+        if (actualLocationA == null) {
             throw new Exception("Unable to locate first fiducial.");
         }
-        Location bVisionLoc = getFiducialLocation(boardLocation, b);
-        if (bVisionLoc == null) {
+        Location actualLocationB = getFiducialLocation(boardLocation, placementB);
+        if (actualLocationB == null) {
             throw new Exception("Unable to locate second fiducial.");
         }
         
         // Calculate the linear distance between the ideal points and the
         // located points. If they differ by more than a few percent we
         // probably made a mistake.
-        double fidDistance = Math.abs(a.getLocation().getLinearDistanceTo(b.getLocation()));
-        double visionDistance = Math.abs(aVisionLoc.getLinearDistanceTo(bVisionLoc));
+        double fidDistance = Math.abs(placementA.getLocation().getLinearDistanceTo(placementB.getLocation()));
+        double visionDistance = Math.abs(actualLocationA.getLinearDistanceTo(actualLocationB));
         if (Math.abs(fidDistance - visionDistance) > fidDistance * 0.01) {
             throw new Exception("Located fiducials are more than 1% away from expected.");
         }
-
+                
         // Calculate the angle and offset from the results
-        Location location = Utils2D.calculateAngleAndOffset(
-                a.getLocation(), 
-                b.getLocation(), 
-                aVisionLoc,
-                bVisionLoc);
+        Location idealLocationA = Utils2D.calculateBoardPlacementLocation(boardLocation, placementA.getLocation());
+        Location idealLocationB = Utils2D.calculateBoardPlacementLocation(boardLocation, placementB.getLocation());
+        Location location = Utils2D.calculateAngleAndOffset2(
+                idealLocationA, 
+                idealLocationB, 
+                actualLocationA,
+                actualLocationB);
         
+        location = boardLocation.getLocation().addWithRotation(location);
         location = location.derive(
                 null, 
                 null, 
@@ -168,8 +159,8 @@ public class FiducialLocator {
         
         // Move to where we expect to find the fid
         Location location = Utils2D.calculateBoardPlacementLocation(
-                boardLocation.getLocation(), boardLocation.getSide(),
-                fid.getLocation());
+        		boardLocation, fid.getLocation());
+        logger.debug("Looking for {} at {}", fid.getId(), location);
         MovableUtils.moveToLocationAtSafeZ(camera, location, 1.0);
 
         
@@ -290,7 +281,7 @@ public class FiducialLocator {
                 }
             }
         }
-        ArrayList<Placement> results = new ArrayList<Placement>();
+        ArrayList<Placement> results = new ArrayList<>();
         results.add(maxA);
         results.add(maxB);
         return results;
@@ -298,7 +289,7 @@ public class FiducialLocator {
     
     private static IdentifiableList<Placement> getFiducials(BoardLocation boardLocation) {
         Board board = boardLocation.getBoard();
-        IdentifiableList<Placement> fiducials = new IdentifiableList<Placement>();
+        IdentifiableList<Placement> fiducials = new IdentifiableList<>();
         for (Placement placement : board.getPlacements()) {
             if (placement.getType() == Type.Fiducial
                     && placement.getSide() == boardLocation.getSide()) {

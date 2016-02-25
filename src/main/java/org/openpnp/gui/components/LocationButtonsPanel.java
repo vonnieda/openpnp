@@ -33,7 +33,6 @@ import javax.swing.JTextField;
 import org.openpnp.gui.MainFrame;
 import org.openpnp.gui.support.Helpers;
 import org.openpnp.gui.support.Icons;
-import org.openpnp.gui.support.MessageBoxes;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
 import org.openpnp.model.Location;
@@ -41,7 +40,6 @@ import org.openpnp.spi.Actuator;
 import org.openpnp.spi.Camera;
 import org.openpnp.spi.Head;
 import org.openpnp.spi.HeadMountable;
-import org.openpnp.spi.Nozzle;
 import org.openpnp.util.MovableUtils;
 import org.openpnp.util.UiUtils;
 
@@ -60,7 +58,7 @@ public class LocationButtonsPanel extends JPanel {
 	private JButton buttonCenterTool;
 	private JButton buttonCaptureCamera;
 	private JButton buttonCaptureTool;
-
+	
 	public LocationButtonsPanel(JTextField textFieldX, JTextField textFieldY,
 			JTextField textFieldZ, JTextField textFieldC) {
 		FlowLayout flowLayout = (FlowLayout) getLayout();
@@ -86,10 +84,22 @@ public class LocationButtonsPanel extends JPanel {
 		buttonCenterTool = new JButton(positionToolAction);
 		buttonCenterTool.setHideActionText(true);
 		add(buttonCenterTool);
+		
+		buttonCenterToolNoSafeZ = new JButton(positionToolNoSafeZAction);
+		buttonCenterToolNoSafeZ.setHideActionText(true);
 
 		setActuatorName(null);
 	}
-
+	
+	public void setShowPositionToolNoSafeZ(boolean b) {
+	    if (b) {
+	        add(buttonCenterToolNoSafeZ);
+	    }
+	    else {
+	        remove(buttonCenterToolNoSafeZ);
+	    }
+	}
+	
 	public void setActuatorName(String actuatorName) {
 		this.actuatorName = actuatorName;
 		if (actuatorName == null || actuatorName.trim().length() == 0) {
@@ -104,6 +114,36 @@ public class LocationButtonsPanel extends JPanel {
 
 	public String getActuatorName() {
 		return actuatorName;
+	}
+	
+	public HeadMountable getTool() throws Exception {
+		return MainFrame.machineControlsPanel.getSelectedNozzle();
+	}
+	
+	public Camera getCamera() throws Exception {
+		return getTool().getHead().getDefaultCamera();
+	}
+	
+	/**
+	 * Get the Actuator with the name provided by setActuatorName() that is
+	 * on the same Head as the tool from getTool(). 
+	 * @return
+	 * @throws Exception
+	 */
+	public Actuator getActuator() throws Exception {
+		if (actuatorName == null) {
+			return null;
+		}
+		HeadMountable tool = getTool();
+		Head head = tool.getHead();
+		Actuator actuator = head.getActuator(actuatorName);
+		if (actuator == null) {
+			throw new Exception(String.format(
+					"No Actuator with name %s on Head %s",
+					actuatorName, 
+					head.getName()));
+		}
+		return actuator;
 	}
 
 	private Location getParsedLocation() {
@@ -133,14 +173,9 @@ public class LocationButtonsPanel extends JPanel {
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
 			UiUtils.messageBoxOnException(() -> {
-				Camera camera = MainFrame
-						.machineControlsPanel
-						.getSelectedTool()
-						.getHead()
-						.getDefaultCamera();
-				Location l = camera.getLocation();
+				Location l = getCamera().getLocation();
 				Helpers.copyLocationIntoTextFields(l, textFieldX, textFieldY,
-						textFieldZ, textFieldC);
+						null, textFieldC);
 			});
 		}
 	};
@@ -154,9 +189,11 @@ public class LocationButtonsPanel extends JPanel {
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
-			Location l = MainFrame.machineControlsPanel.getSelectedNozzle().getLocation();
-			Helpers.copyLocationIntoTextFields(l, textFieldX, textFieldY,
-					textFieldZ, textFieldC);
+			UiUtils.messageBoxOnException(() -> {
+				Location l = getTool().getLocation();
+				Helpers.copyLocationIntoTextFields(l, textFieldX, textFieldY,
+						textFieldZ, textFieldC);
+			});
 		}
 	};
 
@@ -169,24 +206,16 @@ public class LocationButtonsPanel extends JPanel {
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
+			UiUtils.messageBoxOnException(() -> {
+				Actuator actuator = getActuator();
+				if (actuator == null) {
+					return;
+				}
+				Helpers.copyLocationIntoTextFields(actuator.getLocation(), 
+						textFieldX, textFieldY,
+						textFieldZ, textFieldC);
+			});
 			
-			if (actuatorName == null) {
-				return;
-			}
-			
-			Nozzle nozzle = MainFrame.machineControlsPanel.getSelectedNozzle();
-			Head head = nozzle.getHead();
-			Actuator actuator = head.getActuator(actuatorName);
-			if (actuator == null) {
-				MessageBoxes.errorBox(getTopLevelAncestor(),
-						"Error", String.format(
-								"No Actuator with name %s on Head %s",
-								actuatorName, head.getName()));
-				return;
-			}
-			
-			Helpers.copyLocationIntoTextFields(actuator.getLocation(), textFieldX, textFieldY,
-					textFieldZ, textFieldC);
 		}
 	};
 
@@ -200,35 +229,46 @@ public class LocationButtonsPanel extends JPanel {
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
 			UiUtils.submitUiMachineTask(() -> {
-				Camera camera = MainFrame
-						.machineControlsPanel
-						.getSelectedTool()
-						.getHead()
-						.getDefaultCamera();
+				Camera camera = getCamera();
 	            Location location = getParsedLocation();
 			    MovableUtils.moveToLocationAtSafeZ(camera, location, 1.0);
 			});
 		}
 	};
 
-	private Action positionToolAction = new AbstractAction("Position Tool",
-			Icons.centerTool) {
-		{
-			putValue(Action.SHORT_DESCRIPTION,
-					"Position the tool over the center of the location.");
-		}
+    private Action positionToolAction = new AbstractAction("Position Tool",
+            Icons.centerTool) {
+        {
+            putValue(Action.SHORT_DESCRIPTION,
+                    "Position the tool over the center of the location.");
+        }
 
-		@Override
-		public void actionPerformed(ActionEvent arg0) {
-			UiUtils.submitUiMachineTask(() -> {
-				HeadMountable tool = MainFrame
-						.machineControlsPanel
-						.getSelectedTool();
-	            Location location = getParsedLocation();
-			    MovableUtils.moveToLocationAtSafeZ(tool, location, 1.0);
-			});
-		}
-	};
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            UiUtils.submitUiMachineTask(() -> {
+                HeadMountable tool = getTool();
+                Location location = getParsedLocation();
+                MovableUtils.moveToLocationAtSafeZ(tool, location, 1.0);
+            });
+        }
+    };
+
+    private Action positionToolNoSafeZAction = new AbstractAction("Position Tool (Without Safe Z)",
+            Icons.centerToolNoSafeZ) {
+        {
+            putValue(Action.SHORT_DESCRIPTION,
+                    "Position the tool over the center of the location without first moving to Safe Z.");
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            UiUtils.submitUiMachineTask(() -> {
+                HeadMountable tool = getTool();
+                Location location = getParsedLocation();
+                tool.moveTo(location, 1.0);
+            });
+        }
+    };
 
 	private Action positionActuatorAction = new AbstractAction(
 			"Position Actuator", Icons.centerPin) {
@@ -239,32 +279,12 @@ public class LocationButtonsPanel extends JPanel {
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
-			if (actuatorName == null) {
-				return;
-			}
-            Nozzle nozzle = MainFrame.machineControlsPanel.getSelectedNozzle();
-            Head head = nozzle.getHead();
-            final Actuator actuator = head.getActuator(actuatorName);
-            final Location location = getParsedLocation();
-            if (actuator == null) {
-                MessageBoxes.errorBox(getTopLevelAncestor(),
-                        "Error", String.format(
-                                "No Actuator with name %s on Head %s",
-                                actuatorName, head.getName()));
-                return;
-            }
-			
-			MainFrame.machineControlsPanel.submitMachineTask(new Runnable() {
-				public void run() {
-					try {
-					    MovableUtils.moveToLocationAtSafeZ(actuator, location, 1.0);
-					}
-					catch (Exception e) {
-						MessageBoxes.errorBox(getTopLevelAncestor(),
-								"Movement Error", e);
-					}
-				}
+			UiUtils.submitUiMachineTask(() -> {
+				Actuator actuator = getActuator();
+	            Location location = getParsedLocation();
+			    MovableUtils.moveToLocationAtSafeZ(actuator, location, 1.0);
 			});
 		}
 	};
+	private JButton buttonCenterToolNoSafeZ;
 }

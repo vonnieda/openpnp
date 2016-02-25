@@ -82,7 +82,7 @@ public class PartsPanel extends JPanel {
 		
 		setLayout(new BorderLayout(0, 0));
 		partsTableModel = new PartsTableModel();
-		partsTableSorter = new TableRowSorter<PartsTableModel>(partsTableModel);
+		partsTableSorter = new TableRowSorter<>(partsTableModel);
 
 		JPanel panel_5 = new JPanel();
 		add(panel_5, BorderLayout.NORTH);
@@ -218,7 +218,7 @@ public class PartsPanel extends JPanel {
 		public void actionPerformed(ActionEvent arg0) {
 		    int ret = JOptionPane.showConfirmDialog(
 		            getTopLevelAncestor(), 
-		            "Are you sure you want to delete " + getSelectedPart().getId(),
+		            "Are you sure you want to delete " + getSelectedPart().getId() + "?",
 		            "Delete " + getSelectedPart().getId() + "?",
 		            JOptionPane.YES_NO_OPTION);
 		    if (ret == JOptionPane.YES_OPTION) {

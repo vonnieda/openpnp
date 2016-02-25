@@ -25,6 +25,7 @@ import org.openpnp.spi.Nozzle;
 import org.openpnp.spi.NozzleTip;
 import org.openpnp.spi.PropertySheetHolder;
 import org.openpnp.spi.base.AbstractNozzleTip;
+import org.openpnp.util.UiUtils;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.ElementList;
@@ -36,7 +37,7 @@ public class ReferenceNozzleTip extends AbstractNozzleTip {
             .getLogger(ReferenceNozzleTip.class);
 
     @ElementList(required = false, entry = "id")
-    private Set<String> compatiblePackageIds = new HashSet<String>();
+    private Set<String> compatiblePackageIds = new HashSet<>();
     
     @Attribute(required = false)
     private boolean allowIncompatiblePackages;
@@ -48,7 +49,7 @@ public class ReferenceNozzleTip extends AbstractNozzleTip {
     @Element(required = false)
     private Location changerEndLocation = new Location(LengthUnit.Millimeters);
 
-    private Set<org.openpnp.model.Package> compatiblePackages = new HashSet<org.openpnp.model.Package>();
+    private Set<org.openpnp.model.Package> compatiblePackages = new HashSet<>();
     
     public ReferenceNozzleTip() {
         Configuration.get().addListener(new ConfigurationListener.Adapter() {
@@ -58,8 +59,7 @@ public class ReferenceNozzleTip extends AbstractNozzleTip {
                 for (String id : compatiblePackageIds) {
                     org.openpnp.model.Package pkg = configuration.getPackage(id);
                     if (pkg == null) {
-                        throw new Exception("Package " + id
-                                + " not found for ReferenceNozzleTip.");
+                        continue;
                     }
                     compatiblePackages.add(pkg);
                 }
@@ -76,7 +76,7 @@ public class ReferenceNozzleTip extends AbstractNozzleTip {
 	}
     
 	public Set<org.openpnp.model.Package> getCompatiblePackages() {
-        return new HashSet<org.openpnp.model.Package>(compatiblePackages);
+        return new HashSet<>(compatiblePackages);
     }
 
     public void setCompatiblePackages(
@@ -180,17 +180,9 @@ public class ReferenceNozzleTip extends AbstractNozzleTip {
         
         @Override
         public void actionPerformed(final ActionEvent arg0) {
-            MainFrame.machineControlsPanel.submitMachineTask(new Runnable() {
-                public void run() {
-                    try {
-                        getParentNozzle().loadNozzleTip(ReferenceNozzleTip.this);
-                    }
-                    catch (Exception e) {
-                        MessageBoxes.errorBox(((JComponent) arg0.getSource()).getTopLevelAncestor(),
-                                "Movement Error", e);
-                    }
-                }
-            });
+        	UiUtils.submitUiMachineTask(() -> {
+                getParentNozzle().loadNozzleTip(ReferenceNozzleTip.this);
+        	});
         }
     };
     
@@ -204,17 +196,9 @@ public class ReferenceNozzleTip extends AbstractNozzleTip {
         
         @Override
         public void actionPerformed(final ActionEvent arg0) {
-            MainFrame.machineControlsPanel.submitMachineTask(new Runnable() {
-                public void run() {
-                    try {
-                        getParentNozzle().unloadNozzleTip();
-                    }
-                    catch (Exception e) {
-                        MessageBoxes.errorBox(((JComponent) arg0.getSource()).getTopLevelAncestor(),
-                                "Movement Error", e);
-                    }
-                }
-            });
+        	UiUtils.submitUiMachineTask(() -> {
+                getParentNozzle().unloadNozzleTip();
+        	});
         }
     };
 }

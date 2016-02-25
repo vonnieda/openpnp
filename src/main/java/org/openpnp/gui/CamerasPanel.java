@@ -144,7 +144,7 @@ public class CamerasPanel extends JPanel implements WizardContainer {
 		headsComboBox = new JComboBox();
 		
 		table = new AutoSelectTextTable(tableModel);
-		tableSorter = new TableRowSorter<CamerasTableModel>(tableModel);
+		tableSorter = new TableRowSorter<>(tableModel);
 		table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(lookingComboBox));
 		table.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(headsComboBox));
 		
@@ -280,10 +280,10 @@ public class CamerasPanel extends JPanel implements WizardContainer {
 		
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
-			ClassSelectionDialog<Camera> dialog = new ClassSelectionDialog<Camera>(
-					JOptionPane.getFrameForComponent(CamerasPanel.this), 
-					"Select Camera...", 
-					"Please select a Camera implemention from the list below.", 
+			ClassSelectionDialog<Camera> dialog = new ClassSelectionDialog<>(
+					JOptionPane.getFrameForComponent(CamerasPanel.this),
+					"Select Camera...",
+					"Please select a Camera implemention from the list below.",
 					configuration.getMachine().getCompatibleCameraClasses());
 			dialog.setVisible(true);
 			Class<? extends Camera> cameraClass = dialog.getSelectedClass();
@@ -331,7 +331,7 @@ public class CamerasPanel extends JPanel implements WizardContainer {
 		    Camera camera = getSelectedCamera();
             int ret = JOptionPane.showConfirmDialog(
                     getTopLevelAncestor(), 
-                    "Are you sure you want to delete " + camera.getName(),
+                    "Are you sure you want to delete " + camera.getName() + "?",
                     "Delete " + camera.getName() + "?",
                     JOptionPane.YES_NO_OPTION);
             if (ret == JOptionPane.YES_OPTION) {

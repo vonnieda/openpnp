@@ -22,6 +22,8 @@
 package org.openpnp.model;
 
 import org.openpnp.model.Board.Side;
+import org.openpnp.model.LengthUnit;
+import org.openpnp.model.Location;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.core.Commit;

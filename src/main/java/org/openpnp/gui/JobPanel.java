@@ -290,16 +290,28 @@ public class JobPanel extends JPanel {
                     jobProcessor.addListener(jobProcessorListener);
                     jobProcessor.setDelegate(jobProcessorDelegate);
                 }
-                
-                if (machine.getJobProcessors().get(JobProcessor.Type.SolderPaste) != null) {
-                    tabbedPane.addTab("Solder Paste", null, jobPastePanel, null);
-                }
+
                 if (machine.getJobProcessors().get(JobProcessor.Type.PickAndPlace) != null) {
                     tabbedPane.addTab("Pick and Place", null, jobPlacementsPanel, null);
+                    // Creating the tab should fire off the selection event, setting
+                    // the JobProcessor but this fails on some Linux based systems,
+                    // so here we detect if it failed and force setting it.
+                    if (jobProcessor == null) {
+                        setJobProcessor(machine.getJobProcessors().get(JobProcessor.Type.PickAndPlace));
+                    }
+                }
+                if (machine.getJobProcessors().get(JobProcessor.Type.SolderPaste) != null) {
+                    tabbedPane.addTab("Solder Paste", null, jobPastePanel, null);
+                    // Creating the tab should fire off the selection event, setting
+                    // the JobProcessor but this fails on some Linux based systems,
+                    // so here we detect if it failed and force setting it.
+                    if (jobProcessor == null) {
+                        setJobProcessor(machine.getJobProcessors().get(JobProcessor.Type.SolderPaste));
+                    }
                 }
                 
                 // Create an empty Job if one is not loaded
-                if (JobPanel.this.jobProcessor.getJob() == null) {
+                if (jobProcessor.getJob() == null) {
                     Job job = new Job();
                     jobProcessor.load(job);
                 }
@@ -341,8 +353,8 @@ public class JobPanel extends JPanel {
         Job job = null;
         if (this.jobProcessor != null) {
             job = this.jobProcessor.getJob();
-            if (this.jobProcessor.getState() != JobProcessor.JobState.Stopped) {
-                throw new AssertionError("this.jobProcessor.getState() != JobProcessor.JobState.Stopped");
+            if (this.jobProcessor.getState() != null && this.jobProcessor.getState() != JobProcessor.JobState.Stopped) {
+                throw new AssertionError("this.jobProcessor.getState() " + this.jobProcessor.getState() + " != JobProcessor.JobState.Stopped");
             }
             this.jobProcessor.removeListener(jobProcessorListener);
             this.jobProcessor.setDelegate(null);
@@ -884,8 +896,8 @@ public class JobPanel extends JPanel {
         	UiUtils.messageBoxOnException(() -> {
             	HeadMountable tool = MainFrame.machineControlsPanel.getSelectedTool();
             	Camera camera = tool.getHead().getDefaultCamera();
-                getSelectedBoardLocation().setLocation(
-                        camera.getLocation());
+                double z = getSelectedBoardLocation().getLocation().getZ();
+                getSelectedBoardLocation().setLocation(camera.getLocation().derive(null, null, z, null));
                 boardLocationsTableModel.fireTableRowsUpdated(
                         boardLocationsTable.getSelectedRow(),
                         boardLocationsTable.getSelectedRow());
@@ -904,7 +916,8 @@ public class JobPanel extends JPanel {
         @Override
         public void actionPerformed(ActionEvent arg0) {
         	HeadMountable tool = MainFrame.machineControlsPanel.getSelectedTool();
-            getSelectedBoardLocation().setLocation(tool.getLocation());
+                double z = getSelectedBoardLocation().getLocation().getZ();
+                getSelectedBoardLocation().setLocation(tool.getLocation().derive(null, null, z, null));
             boardLocationsTableModel.fireTableRowsUpdated(
                     boardLocationsTable.getSelectedRow(),
                     boardLocationsTable.getSelectedRow());

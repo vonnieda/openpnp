@@ -37,6 +37,7 @@ import javax.swing.table.AbstractTableModel;
 
 import org.jdesktop.beansbinding.AutoBinding.UpdateStrategy;
 import org.openpnp.ConfigurationListener;
+import org.openpnp.gui.components.AutoSelectTextTable;
 import org.openpnp.gui.components.ComponentDecorators;
 import org.openpnp.gui.components.LocationButtonsPanel;
 import org.openpnp.gui.support.AbstractConfigurationWizard;
@@ -78,7 +79,7 @@ public class ReferenceNozzleTipConfigurationWizard extends
     private JTable table;
     private PackagesTableModel tableModel;
     
-    private Set<org.openpnp.model.Package> compatiblePackages = new HashSet<org.openpnp.model.Package>();
+    private Set<org.openpnp.model.Package> compatiblePackages = new HashSet<>();
     
     public ReferenceNozzleTipConfigurationWizard(ReferenceNozzleTip nozzleTip) {
         this.nozzleTip = nozzleTip;
@@ -101,7 +102,7 @@ public class ReferenceNozzleTipConfigurationWizard extends
         scrollPane = new JScrollPane();
         panelPackageCompat.add(scrollPane, "2, 4, fill, default");
         
-        table = new JTable(tableModel = new PackagesTableModel());
+        table = new AutoSelectTextTable(tableModel = new PackagesTableModel());
         scrollPane.setViewportView(table);
         
         panelChanger = new JPanel();
@@ -153,6 +154,7 @@ public class ReferenceNozzleTipConfigurationWizard extends
         textFieldChangerStartZ.setColumns(5);
         
         changerStartLocationButtonsPanel = new LocationButtonsPanel(textFieldChangerStartX, textFieldChangerStartY, textFieldChangerStartZ, (JTextField) null);
+        changerStartLocationButtonsPanel.setShowPositionToolNoSafeZ(true);
         panelChanger.add(changerStartLocationButtonsPanel, "10, 4, fill, default");
         
         lblMiddleLocation = new JLabel("Middle Location");
@@ -171,6 +173,7 @@ public class ReferenceNozzleTipConfigurationWizard extends
         textFieldChangerMidZ.setColumns(5);
         
         changerMidLocationButtonsPanel = new LocationButtonsPanel(textFieldChangerMidX, textFieldChangerMidY, textFieldChangerMidZ, (JTextField) null);
+        changerMidLocationButtonsPanel.setShowPositionToolNoSafeZ(true);
         panelChanger.add(changerMidLocationButtonsPanel, "10, 6, fill, default");
         
         lblEndLocation = new JLabel("End Location");
@@ -189,6 +192,7 @@ public class ReferenceNozzleTipConfigurationWizard extends
         textFieldChangerEndZ.setColumns(5);
         
         changerEndLocationButtonsPanel = new LocationButtonsPanel(textFieldChangerEndX, textFieldChangerEndY, textFieldChangerEndZ, (JTextField) null);
+        changerEndLocationButtonsPanel.setShowPositionToolNoSafeZ(true);
         panelChanger.add(changerEndLocationButtonsPanel, "10, 8, fill, default");
     }
     
@@ -278,7 +282,7 @@ public class ReferenceNozzleTipConfigurationWizard extends
         }
 
         public void refresh() {
-            packages = new ArrayList<org.openpnp.model.Package>(Configuration.get().getPackages());
+            packages = new ArrayList<>(Configuration.get().getPackages());
             fireTableDataChanged();
         }
 

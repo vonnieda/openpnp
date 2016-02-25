@@ -57,7 +57,7 @@ public class NullDriver implements ReferenceDriver {
     @Attribute(required = false)
     private double feedRateMmPerMinute = 5000;
     
-    private HashMap<Head, Location> headLocations = new HashMap<Head, Location>();
+    private HashMap<Head, Location> headLocations = new HashMap<>();
     
     private boolean enabled;
 
@@ -324,8 +324,15 @@ public class NullDriver implements ReferenceDriver {
         }
     }
     
+    public double getFeedRateMmPerMinute() {
+		return feedRateMmPerMinute;
+	}
 
-    @Override
+	public void setFeedRateMmPerMinute(double feedRateMmPerMinute) {
+		this.feedRateMmPerMinute = feedRateMmPerMinute;
+	}
+
+	@Override
     public void close() throws IOException {
         // TODO Auto-generated method stub
         

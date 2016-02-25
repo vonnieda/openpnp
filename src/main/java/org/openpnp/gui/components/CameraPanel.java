@@ -44,7 +44,7 @@ public class CameraPanel extends JPanel {
 	private static final String SHOW_NONE_ITEM = "Show None";
 	private static final String SHOW_ALL_ITEM = "Show All";
 
-	private Map<Camera, CameraView> cameraViews = new LinkedHashMap<Camera, CameraView>();
+	private Map<Camera, CameraView> cameraViews = new LinkedHashMap<>();
 
 	private JComboBox camerasCombo;
 	private JPanel camerasPanel;
@@ -144,11 +144,13 @@ public class CameraPanel extends JPanel {
 						selectedCameraView = cameraView;
 					}
 				}
-				for (int i = 0; i < (columns * columns) - cameraViews.size(); i++) {
-					JPanel panel = new JPanel();
-					panel.setBackground(Color.black);
-					camerasPanel.add(panel);
-				}
+                if (cameraViews.size() > 2) {
+                    for (int i = 0; i < (columns * columns) - cameraViews.size(); i++) {
+                        JPanel panel = new JPanel();
+                        panel.setBackground(Color.black);
+                        camerasPanel.add(panel);
+                    }
+                }
 				selectedCameraView = null;
 			}
 			else {

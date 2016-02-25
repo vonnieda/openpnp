@@ -355,7 +355,7 @@ public class FluentCv {
 	}
 	
 	public List<String> getStoredTags() {
-		return new ArrayList<String>(stored.keySet());
+		return new ArrayList<>(stored.keySet());
 	}
 	
 	public FluentCv write(File file) throws Exception {
@@ -431,7 +431,7 @@ public class FluentCv {
 			double maxDistance,
 			String...tag
 			) {
-		List<float[]> results = new ArrayList<float[]>();
+		List<float[]> results = new ArrayList<>();
     	for (int i = 0; i < this.mat.cols(); i++) {
     		float[] circle = new float[3];
     		this.mat.get(0, i, circle);
@@ -468,7 +468,7 @@ public class FluentCv {
 			return store(this.mat, tag);
 		}
 		
-    	List<Point> points = new ArrayList<Point>();
+    	List<Point> points = new ArrayList<>();
     	// collect the circles into a list of points
     	for (int i = 0; i < this.mat.cols(); i++) {
     		float[] circle = new float[3];
@@ -483,7 +483,7 @@ public class FluentCv {
     	Point b = line[1];
 		
     	// filter the points by distance from the resulting line
-		List<float[]> results = new ArrayList<float[]>();
+		List<float[]> results = new ArrayList<>();
 		for (int i = 0; i < this.mat.cols(); i++) {
     		float[] circle = new float[3];
     		this.mat.get(0, i, circle);
@@ -633,7 +633,7 @@ public class FluentCv {
 	public FluentCv getContourMaxRects(List<MatOfPoint> contours, List<RotatedRect> rect) {
 		List<Point> contoursCombined = new ArrayList<>();
 		for (MatOfPoint mp : contours) {
-			List<Point> points = new ArrayList<Point>();
+			List<Point> points = new ArrayList<>();
 			Converters.Mat_to_vector_Point(mp, points);
 			for (Point point : points) {
 				contoursCombined.add(point);
@@ -761,8 +761,8 @@ public class FluentCv {
 		Core.line(img, p, q, colorToScalar(color));
 	}
 	
+    // From: http://stackoverflow.com/questions/23327502/opencv-how-to-draw-minarearect-in-java
 	public static void drawRotatedRect(Mat mat, RotatedRect rect, Color color, int thickness) {
-		// From: http://stackoverflow.com/questions/23327502/opencv-how-to-draw-minarearect-in-java
 		Point points[] = new Point[4];
 	    rect.points(points);
 	    Scalar color_ = colorToScalar(color);
@@ -789,5 +789,35 @@ public class FluentCv {
 			double psnr = 10.0 * Math.log10((255 * 255) / mse);
 			return psnr;
 		}
+	}
+	
+	/**
+	 * From FireSight: https://github.com/firepick1/FireSight/wiki/op-Sharpness
+	 * @param image
+	 * @return
+	 */
+	public static double calculateSharpnessGRAS(Mat image) {
+        int sum = 0;
+        Mat matGray = new Mat();
+
+        if (image.channels() == 1) {
+            matGray = image;
+        }
+        else {
+            Imgproc.cvtColor(image, matGray, Imgproc.COLOR_BGR2GRAY);
+        }
+
+        byte[] b1 = new byte[1];
+        byte[] b2 = new byte[1];
+        for (int r = 0; r < matGray.rows(); r++) {
+            for (int c = 0; c < matGray.cols() - 1; c++) {
+                matGray.get(r, c, b1);
+                matGray.get(r, c + 1, b2);
+                int df = (int) b1[0] - (int) b2[0];
+                sum += df * df;
+            }
+        }
+
+        return ((double) sum / matGray.rows() / (matGray.cols() - 1));
 	}
 }
