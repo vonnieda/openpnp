@@ -25,8 +25,9 @@ import java.io.IOException;
 import javax.swing.Action;
 
 import org.opencv.core.Mat;
-import org.opencv.highgui.Highgui;
-import org.opencv.highgui.VideoCapture;
+import org.opencv.video.Video;
+import org.opencv.videoio.VideoCapture;
+import org.opencv.videoio.Videoio;
 import org.openpnp.CameraListener;
 import org.openpnp.gui.support.PropertySheetWizardAdapter;
 import org.openpnp.gui.support.Wizard;
@@ -129,10 +130,10 @@ public class OpenCvCamera extends ReferenceCamera implements Runnable {
             height = null;
             fg.open(deviceIndex);
             if (preferredWidth != 0) {
-                fg.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, preferredWidth);
+                fg.set(Videoio.CV_CAP_PROP_FRAME_WIDTH, preferredWidth);
             }
             if (preferredHeight != 0) {
-                fg.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, preferredHeight);
+                fg.set(Videoio.CV_CAP_PROP_FRAME_HEIGHT, preferredHeight);
             }
         }
         catch (Exception e) {

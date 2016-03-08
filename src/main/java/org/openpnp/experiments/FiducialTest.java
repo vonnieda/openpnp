@@ -20,7 +20,6 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.KeyStroke;
 
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
@@ -31,7 +30,7 @@ import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 public class FiducialTest {
@@ -43,7 +42,7 @@ public class FiducialTest {
     public static void showResult(String name, Mat img) {
         // Imgproc.resize(img, img, new Size(640, 480));
         MatOfByte matOfByte = new MatOfByte();
-        Highgui.imencode(".jpg", img, matOfByte);
+        Imgcodecs.imencode(".jpg", img, matOfByte);
         byte[] byteArray = matOfByte.toArray();
         BufferedImage bufImage = null;
         try {
@@ -147,8 +146,8 @@ public class FiducialTest {
             // >>>>>>>>>>> this is for debug output, not for function
             Imgproc.drawContours(dst, contours, i, new Scalar(0, 0, 255), 2); // java
                                                                               // thing
-            Core.circle(dst, ret, 4, new Scalar(0, 255, 255), -1);
-            Core.circle(dst, new Point(r.x + r.width / 2, r.y + r.height / 2), 4,
+            Imgproc.circle(dst, ret, 4, new Scalar(0, 255, 255), -1);
+            Imgproc.circle(dst, new Point(r.x + r.width / 2, r.y + r.height / 2), 4,
                     new Scalar(0, 0, 255), -1);
             showResult("found", dst);
             // <<<<<<<<<<< end of debug
@@ -178,15 +177,15 @@ public class FiducialTest {
             max = Integer.valueOf(args[4]);
         }
         // System.out.println("Usage: <prg> " + args[1]+" "+args[2]);
-        Mat src = Highgui.imread(args[1], 0);
-        dst = Highgui.imread(args[1], 1);
+        Mat src = Imgcodecs.imread(args[1], 0);
+        dst = Imgcodecs.imread(args[1], 1);
         // showResult(dst);
         Imgproc.cvtColor(src, dst, Imgproc.COLOR_GRAY2BGR);
 
         Point p = fiducial(src, min, max);
         try {
             System.out.println("Point: " + p.x + " " + p.y);
-            Highgui.imwrite(args[2], dst);
+            Imgcodecs.imwrite(args[2], dst);
             // showResult("dst",dst);
         }
         catch (Exception ex) {
