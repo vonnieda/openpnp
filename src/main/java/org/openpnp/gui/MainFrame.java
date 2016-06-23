@@ -210,6 +210,12 @@ public class MainFrame extends JFrame {
         mnEdit.addSeparator();
         mnEdit.add(new JMenuItem(jobPanel.captureToolBoardLocationAction));
         
+        if (!macOsXMenus) {
+            mnEdit.addSeparator();
+            mnEdit.add(new JMenuItem(preferencesAction));
+        }
+        
+
         // View
         //////////////////////////////////////////////////////////////////////
         JMenu mnView = new JMenu("View");
@@ -522,8 +528,8 @@ public class MainFrame extends JFrame {
                         getClass().getDeclaredMethod("quit", (Class[]) null));
                 OSXAdapter.setAboutHandler(this,
                         getClass().getDeclaredMethod("about", (Class[]) null));
-                // OSXAdapter.setPreferencesHandler(this, getClass()
-                // .getDeclaredMethod("preferences", (Class[]) null));
+                OSXAdapter.setPreferencesHandler(this,
+                        getClass().getDeclaredMethod("preferences", (Class[]) null));
                 // OSXAdapter.setFileHandler(
                 // this,
                 // getClass().getDeclaredMethod("loadImageFile",
@@ -538,6 +544,14 @@ public class MainFrame extends JFrame {
         return false;
     }
     
+    public void preferences() {
+        PreferencesDialog dialog = new PreferencesDialog(this);
+        dialog.setLocationRelativeTo(null);
+        dialog.setModal(true);
+        dialog.pack();
+        dialog.setVisible(true);
+    }
+
     public void about() {
         AboutDialog dialog = new AboutDialog(this);
         dialog.setSize(750, 550);
@@ -645,6 +659,13 @@ public class MainFrame extends JFrame {
         @Override
         public void actionPerformed(ActionEvent arg0) {
             about();
+        }
+    };
+
+    private Action preferencesAction = new AbstractAction("Preferences") {
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            preferences();
         }
     };
 
