@@ -1,5 +1,6 @@
 package org.openpnp.machine.reference.vision;
 
+import java.awt.Color;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,12 +36,8 @@ import org.simpleframework.xml.ElementMap;
 import org.simpleframework.xml.Root;
 
 public class ReferenceBottomVision implements PartAlignment {
-
-
     @Element(required = false)
     protected CvPipeline pipeline = createDefaultPipeline();
-
-
 
     @Attribute(required = false)
     protected boolean enabled = false;
@@ -57,6 +54,13 @@ public class ReferenceBottomVision implements PartAlignment {
         }
 
         Camera camera = VisionUtils.getBottomVisionCamera();
+        Camera nozzleCamera = nozzle.getHead().getDefaultCamera();
+        
+        Color cameraLightingColor = camera.getLightingColor();
+        Color nozzleCameraLightingColor = nozzleCamera.getLightingColor();
+        
+        camera.setLightingColor(Color.white);
+        nozzleCamera.setLightingColor(Color.black);
 
         // Create a location that is the Camera's X, Y, it's Z + part height
         // and a rotation of 0.
@@ -107,7 +111,9 @@ public class ReferenceBottomVision implements PartAlignment {
         String s = rect.size.toString() + " " + rect.angle + "°";
         cameraView.showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), s,
                 1500);
-
+        
+        camera.setLightingColor(cameraLightingColor);
+        nozzleCamera.setLightingColor(nozzleCameraLightingColor);
 
         return new PartAlignmentOffset(offsets,false);
     }

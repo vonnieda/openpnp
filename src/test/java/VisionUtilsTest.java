@@ -1,3 +1,4 @@
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
@@ -210,6 +211,17 @@ public class VisionUtilsTest {
         @Override
         public void moveToSafeZ() throws Exception {
             moveToSafeZ(getHead().getMachine().getSpeed());
+        }
+
+        @Override
+        public void setLightingColor(Color color) throws Exception {
+            // TODO Auto-generated method stub            
+        }
+
+        @Override
+        public Color getLightingColor() {
+            // TODO Auto-generated method stub
+            return null;
         }
     }
 }

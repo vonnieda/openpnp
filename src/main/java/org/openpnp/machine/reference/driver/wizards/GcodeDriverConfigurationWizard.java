@@ -30,6 +30,7 @@ import javax.swing.event.DocumentListener;
 
 import org.openpnp.gui.MainFrame;
 import org.openpnp.gui.support.AbstractConfigurationWizard;
+import org.openpnp.gui.support.HeadMountableItem;
 import org.openpnp.gui.support.Icons;
 import org.openpnp.gui.support.MessageBoxes;
 import org.openpnp.machine.reference.driver.GcodeDriver;
@@ -325,37 +326,4 @@ public class GcodeDriverConfigurationWizard extends AbstractConfigurationWizard 
     private JComboBox<CommandType> comboBoxCommandType;
     private JComboBox<HeadMountableItem> comboBoxHm;
     private JTextArea textAreaCommand;
-
-    static class HeadMountableItem {
-        private HeadMountable hm;
-
-        public HeadMountableItem(HeadMountable hm) {
-            this.hm = hm;
-        }
-
-        public HeadMountable getHeadMountable() {
-            return hm;
-        }
-
-        @Override
-        public String toString() {
-            if (hm == null) {
-                return "Default";
-            }
-            String type = null;
-            if (hm instanceof Nozzle) {
-                type = "Nozzle";
-            }
-            else if (hm instanceof PasteDispenser) {
-                type = "Paste Dispenser";
-            }
-            else if (hm instanceof Camera) {
-                type = "Camera";
-            }
-            else if (hm instanceof Actuator) {
-                type = "Actuator";
-            }
-            return String.format("%s: %s %s", type, hm.getHead().getName(), hm.getName());
-        }
-    }
 }

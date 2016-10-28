@@ -19,6 +19,7 @@
 
 package org.openpnp.spi;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.Closeable;
 
@@ -116,4 +117,14 @@ public interface Camera extends HeadMountable, WizardConfigurable,
     public long getSettleTimeMs();
 
     public void setSettleTimeMs(long settleTimeMs);
+    
+    /**
+     * Set the color of the lighting for this camera. Null or Color.black (RGB 0,0,0) is considered
+     * off. Any other value can be considered on for binary lighting or can be used to set the
+     * actual color for lighting systems that support it.
+     * @param color
+     */
+    public void setLightingColor(Color color) throws Exception;
+    
+    public Color getLightingColor();
 }

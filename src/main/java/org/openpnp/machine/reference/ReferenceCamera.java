@@ -19,6 +19,7 @@
 
 package org.openpnp.machine.reference;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
@@ -34,6 +35,8 @@ import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
 import org.openpnp.model.LengthUnit;
 import org.openpnp.model.Location;
+import org.openpnp.spi.Actuator;
+import org.openpnp.spi.Camera;
 import org.openpnp.spi.base.AbstractCamera;
 import org.openpnp.util.OpenCvUtils;
 import org.openpnp.vision.LensCalibration;
@@ -50,8 +53,6 @@ public abstract class ReferenceCamera extends AbstractCamera implements Referenc
         nu.pattern.OpenCV.loadShared();
         System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
     }
-
-
 
     @Element(required = false)
     private Location headOffsets = new Location(LengthUnit.Millimeters);
@@ -82,6 +83,9 @@ public abstract class ReferenceCamera extends AbstractCamera implements Referenc
 
     @Element(required = false)
     private LensCalibrationParams calibration = new LensCalibrationParams();
+    
+    @Element(required = false)
+    protected Lighting lighting = new Lighting();
 
     private boolean calibrating;
     private CalibrationCallback calibrationCallback;
@@ -93,8 +97,9 @@ public abstract class ReferenceCamera extends AbstractCamera implements Referenc
     protected ReferenceMachine machine;
     protected ReferenceDriver driver;
 
-
     private LensCalibration lensCalibration;
+    
+    protected Color lightingColor = Color.black;
 
     public ReferenceCamera() {
         Configuration.get().addListener(new ConfigurationListener.Adapter() {
@@ -381,9 +386,28 @@ public abstract class ReferenceCamera extends AbstractCamera implements Referenc
     public void setSafeZ(Length safeZ) {
         this.safeZ = safeZ;
     }
+    
+    @Override
+    public void setLightingColor(Color color) throws Exception {
+        this.lightingColor = color;
+        lighting.setLightingColor(color, this);
+    }
+
+    @Override
+    public Color getLightingColor() {
+        return lightingColor;
+    }
 
     @Override
     public void close() throws IOException {}
+    
+    public Lighting getLighting() {
+        return lighting;
+    }
+
+    public void setLighting(Lighting lighting) {
+        this.lighting = lighting;
+    }
 
     public interface CalibrationCallback {
         public void callback(int progressCurrent, int progressMax, boolean complete);
@@ -436,6 +460,81 @@ public abstract class ReferenceCamera extends AbstractCamera implements Referenc
 
         public void setDistortionCoefficientsMat(Mat distortionCoefficients) {
             this.distortionCoefficients = distortionCoefficients.clone();
+        }
+    }
+    
+    public static class Lighting {
+        @Element(required = false)
+        String onOffActuatorId = "";
+        
+        @Element(required = false)
+        String redActuatorId = "";
+        
+        @Element(required = false)
+        String greenActuatorId = "";
+        
+        @Element(required = false)
+        String blueActuatorId = "";
+        
+        public String getOnOffActuatorId() {
+            return onOffActuatorId;
+        }
+
+        public void setOnOffActuatorId(String onOffActuatorId) {
+            this.onOffActuatorId = onOffActuatorId;
+        }
+
+        public String getRedActuatorId() {
+            return redActuatorId;
+        }
+
+        public void setRedActuatorId(String redActuatorId) {
+            this.redActuatorId = redActuatorId;
+        }
+
+        public String getGreenActuatorId() {
+            return greenActuatorId;
+        }
+
+        public void setGreenActuatorId(String greenActuatorId) {
+            this.greenActuatorId = greenActuatorId;
+        }
+
+        public String getBlueActuatorId() {
+            return blueActuatorId;
+        }
+
+        public void setBlueActuatorId(String blueActuatorId) {
+            this.blueActuatorId = blueActuatorId;
+        }
+
+        private Actuator getActuator(String id, Camera camera) {
+            if (id == null) {
+                return null;
+            }
+            if (camera.getHead() != null) {
+                return camera.getHead().getActuator(id);
+            }
+            else {
+                return Configuration.get().getMachine().getActuator(id);
+            }
+        }
+        
+        public void setLightingColor(Color color, Camera camera) throws Exception {
+            Actuator a = getActuator(onOffActuatorId, camera);
+            if (a != null) {
+                a.actuate(color != null && !color.equals(Color.black));
+            }
+            
+            Actuator r = getActuator(redActuatorId, camera), 
+                    g = getActuator(greenActuatorId, camera), 
+                    b = getActuator(blueActuatorId, camera);
+            
+            if (r != null && g != null && b != null) {
+                r.actuate(color.getRed());
+                g.actuate(color.getGreen());
+                b.actuate(color.getBlue());
+            }
         }
     }
 }

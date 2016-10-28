@@ -244,7 +244,7 @@ public class NullDriver implements ReferenceDriver {
         Logger.debug("actuate({}, {})", actuator, value);
         checkEnabled();
         if (feedRateMmPerMinute > 0) {
-            Thread.sleep(500);
+            Thread.sleep(100);
         }
     }
 
@@ -253,7 +253,7 @@ public class NullDriver implements ReferenceDriver {
         Logger.debug("actuate({}, {})", actuator, on);
         checkEnabled();
         if (feedRateMmPerMinute > 0) {
-            Thread.sleep(500);
+            Thread.sleep(100);
         }
     }
 

@@ -1,5 +1,6 @@
 package org.openpnp.spi.base;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,10 +47,13 @@ public abstract class AbstractCamera implements Camera {
     protected Integer width;
 
     protected Integer height;
+    
+    protected Color lightingColor;
 
     public AbstractCamera() {
         this.id = Configuration.createId("CAM");
         this.name = getClass().getSimpleName();
+        setUnitsPerPixel(new Location(Configuration.get().getSystemUnits()));
         Configuration.get().addListener(new ConfigurationListener.Adapter() {
             @Override
             public void configurationLoaded(Configuration configuration) throws Exception {
@@ -188,7 +192,7 @@ public abstract class AbstractCamera implements Camera {
     public void moveToSafeZ() throws Exception {
         moveToSafeZ(getHead().getMachine().getSpeed());
     }
-    
+
     protected class ListenerEntry {
         public CameraListener listener;
         public int maximumFps;

@@ -36,8 +36,6 @@ import org.simpleframework.xml.Root;
 
 @Root
 public class SimulatedUpCamera extends ReferenceCamera implements Runnable {
-
-
     protected int width = 640;
 
     protected int height = 480;
@@ -52,6 +50,7 @@ public class SimulatedUpCamera extends ReferenceCamera implements Runnable {
 
     public SimulatedUpCamera() {
         setUnitsPerPixel(new Location(LengthUnit.Millimeters, 0.0234375D, 0.0234375D, 0, 0));
+        setLooking(Looking.Up);
         Configuration.get().addListener(new ConfigurationListener.Adapter() {
             @Override
             public void configurationComplete(Configuration configuration) throws Exception {
@@ -235,6 +234,9 @@ public class SimulatedUpCamera extends ReferenceCamera implements Runnable {
     private MachineListener machineListener = new MachineListener.Adapter() {
         @Override
         public void machineHeadActivity(Machine machine, Head head) {
+            if (head == null) {
+                return;
+            }
             for (Nozzle nozzle : head.getNozzles()) {
                 Part part = nozzleParts.get(nozzle);
                 if (part == null || part != nozzle.getPart()) {

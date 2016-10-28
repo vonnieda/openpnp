@@ -283,7 +283,6 @@ public class CamerasPanel extends JPanel implements WizardContainer {
             try {
                 Camera camera = cameraClass.newInstance();
 
-                camera.setUnitsPerPixel(new Location(Configuration.get().getSystemUnits()));
                 try {
                     if (camera.getVisionProvider() == null) {
                         camera.setVisionProvider(new OpenCvVisionProvider());

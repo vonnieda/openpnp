@@ -7,6 +7,7 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
@@ -20,11 +21,17 @@ import org.openpnp.gui.components.ComponentDecorators;
 import org.openpnp.gui.components.LocationButtonsPanel;
 import org.openpnp.gui.support.AbstractConfigurationWizard;
 import org.openpnp.gui.support.DoubleConverter;
+import org.openpnp.gui.support.HeadMountableItem;
 import org.openpnp.gui.support.IntegerConverter;
 import org.openpnp.gui.support.LengthConverter;
 import org.openpnp.gui.support.MutableLocationProxy;
 import org.openpnp.machine.reference.ReferenceCamera;
 import org.openpnp.model.Configuration;
+import org.openpnp.spi.Actuator;
+import org.openpnp.spi.Camera;
+import org.openpnp.spi.Head;
+import org.openpnp.spi.Nozzle;
+import org.openpnp.spi.PasteDispenser;
 
 import com.jgoodies.forms.layout.ColumnSpec;
 import com.jgoodies.forms.layout.FormLayout;
@@ -200,6 +207,48 @@ public class ReferenceCameraConfigurationWizard extends AbstractConfigurationWiz
         
         lblNewLabel_1 = new JLabel("(Use 0 for no cropping)");
         panelGeneral.add(lblNewLabel_1, "5, 14");
+        
+        panelLighting = new JPanel();
+        panelLighting.setBorder(new TitledBorder(null, "Lighting", TitledBorder.LEADING, TitledBorder.TOP, null, null));
+        contentPanel.add(panelLighting);
+        panelLighting.setLayout(new FormLayout(new ColumnSpec[] {
+                FormSpecs.RELATED_GAP_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC,
+                FormSpecs.RELATED_GAP_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC,},
+            new RowSpec[] {
+                FormSpecs.RELATED_GAP_ROWSPEC,
+                FormSpecs.DEFAULT_ROWSPEC,
+                FormSpecs.RELATED_GAP_ROWSPEC,
+                FormSpecs.DEFAULT_ROWSPEC,
+                FormSpecs.RELATED_GAP_ROWSPEC,
+                FormSpecs.DEFAULT_ROWSPEC,
+                FormSpecs.RELATED_GAP_ROWSPEC,
+                FormSpecs.DEFAULT_ROWSPEC,}));
+        
+        lblOnOff = new JLabel("On / Off Actuator");
+        panelLighting.add(lblOnOff, "2, 2, right, default");
+        
+        comboBoxOnOff = new JComboBox();
+        panelLighting.add(comboBoxOnOff, "4, 2, fill, default");
+        
+        lblRedActuator = new JLabel("Red Actuator");
+        panelLighting.add(lblRedActuator, "2, 4, right, default");
+        
+        comboBoxRed = new JComboBox();
+        panelLighting.add(comboBoxRed, "4, 4, fill, default");
+        
+        lblGreenActuator = new JLabel("Green Actuator");
+        panelLighting.add(lblGreenActuator, "2, 6, right, default");
+        
+        comboBoxGreen = new JComboBox();
+        panelLighting.add(comboBoxGreen, "4, 6, fill, default");
+        
+        lblBlueActuator = new JLabel("Blue Actuator");
+        panelLighting.add(lblBlueActuator, "2, 8, right, default");
+        
+        comboBoxBlue = new JComboBox();
+        panelLighting.add(comboBoxBlue, "4, 8, fill, default");
 
         panelLocation = new JPanel();
         panelLocation.setBorder(new TitledBorder(null, "Location", TitledBorder.LEADING,
@@ -277,9 +326,28 @@ public class ReferenceCameraConfigurationWizard extends AbstractConfigurationWiz
             else {
                 panelLocation.setVisible(false);
             }
+
+            fillActuators(comboBoxOnOff);
+            fillActuators(comboBoxRed);
+            fillActuators(comboBoxGreen);
+            fillActuators(comboBoxBlue);
         }
         catch (Exception e) {
 
+        }
+    }
+    
+    private void fillActuators(JComboBox comboBox) {
+        comboBox.addItem(new HeadMountableItem(null, "None"));
+        if (referenceCamera.getHead() != null) {
+            for (Actuator hm : referenceCamera.getHead().getActuators()) {
+                comboBox.addItem(new HeadMountableItem(hm));
+            }
+        }
+        else {
+            for (Actuator hm : Configuration.get().getMachine().getActuators()) {
+                comboBox.addItem(new HeadMountableItem(hm));
+            }
         }
     }
 
@@ -391,4 +459,13 @@ public class ReferenceCameraConfigurationWizard extends AbstractConfigurationWiz
     private JTextField cropHeightTextField;
     private JLabel lblNewLabel;
     private JLabel lblNewLabel_1;
+    private JPanel panelLighting;
+    private JLabel lblOnOff;
+    private JLabel lblRedActuator;
+    private JLabel lblGreenActuator;
+    private JLabel lblBlueActuator;
+    private JComboBox comboBoxOnOff;
+    private JComboBox comboBoxRed;
+    private JComboBox comboBoxGreen;
+    private JComboBox comboBoxBlue;
 }
