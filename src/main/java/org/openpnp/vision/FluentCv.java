@@ -636,7 +636,10 @@ public class FluentCv {
     }
 
     public static Scalar colorToScalar(Color color) {
-        return new Scalar(color.getBlue(), color.getGreen(), color.getRed(), 255);
+        if (color != null) {
+            return new Scalar(color.getBlue(), color.getGreen(), color.getRed(), 255);
+        }
+        return null;
     }
 
     /**
