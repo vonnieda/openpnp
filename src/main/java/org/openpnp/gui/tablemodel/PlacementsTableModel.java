@@ -142,7 +142,7 @@ public class PlacementsTableModel extends AbstractTableModel {
         if (placement.getType() == Placement.Type.Place) {
             boolean found = false;
             for (Feeder feeder : Configuration.get().getMachine().getFeeders()) {
-                if (feeder.getPart() == placement.getPart() && feeder.isEnabled()) {
+                if (feeder.canHandle(placement.getPart()) && feeder.isEnabled()) {
                     found = true;
                     break;
                 }
