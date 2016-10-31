@@ -85,7 +85,8 @@ public abstract class AbstractPnpJobProcessor extends AbstractJobProcessor
      */
     public static Feeder findFeeder(Machine machine, Part part) throws Exception {
         for (Feeder feeder : machine.getFeeders()) {
-            if (feeder.getPart() == part && feeder.isEnabled()) {
+// FCA possibility to override the criterium of equality with a feeder
+            if (feeder.canHandle(part) && feeder.isEnabled()) {
                 return feeder;
             }
         }
