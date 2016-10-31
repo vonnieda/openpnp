@@ -29,11 +29,23 @@ public class Package implements Identifiable {
     @Attribute(required = false)
     private String description;
 
+// FCA
+// A package has always a height like given in the IPC7351
+// 
+    
+    @Attribute(required = false)
+    private LengthUnit heightUnits = LengthUnit.Millimeters;
+    @Attribute(required = false)
+    private double height;
+
+
     @Element(required = false)
     private Outline outline;
 
     @Element(required = false)
     private Footprint footprint;
+    
+
 
     private Package() {
         this(null);
@@ -88,4 +100,26 @@ public class Package implements Identifiable {
     public String toString() {
         return String.format("id %s", id);
     }
+
+// FCA Getter and Setter 
+// @TODO verify if firePropertyChange is important.     
+
+    public Length getHeight() {
+        return new Length(height, heightUnits);
+    }
+
+    public void setHeight(Length height) {
+        Object oldValue = getHeight();
+        if (height == null) {
+            this.height = 0;
+            this.heightUnits = null;
+        }
+        else {
+            this.height = height.getValue();
+            this.heightUnits = height.getUnits();
+        }
+//        firePropertyChange("height", oldValue, getHeight());
+    }
+
+    
 }

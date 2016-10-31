@@ -26,7 +26,9 @@ import java.util.List;
 
 import javax.swing.table.AbstractTableModel;
 
+import org.openpnp.gui.support.LengthCellValue;
 import org.openpnp.model.Configuration;
+import org.openpnp.model.Length;
 import org.openpnp.model.Package;
 // import org.openpnp.model.Package;
 
@@ -34,8 +36,8 @@ import org.openpnp.model.Package;
 public class PackagesTableModel extends AbstractTableModel implements PropertyChangeListener {
     final private Configuration configuration;
 
-    private String[] columnNames = new String[] {"Id", "Description"};
-    private Class[] columnTypes = new Class[] {String.class, String.class,};
+    private String[] columnNames = new String[] {"Id", "Height", "Description"};
+    private Class[] columnTypes = new Class[] {String.class,LengthCellValue.class, String.class,};
     private List<Package> packages;
 
     public PackagesTableModel(Configuration configuration) {
@@ -65,19 +67,35 @@ public class PackagesTableModel extends AbstractTableModel implements PropertyCh
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        return columnIndex == 1;
+        return columnIndex >0;
     }
 
     public Package getPackage(int index) {
         return packages.get(index);
     }
+// FCA Add the heigth column
 
     @Override
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
         try {
             Package this_package = packages.get(rowIndex);
-            if (columnIndex == 1) {
+            if (columnIndex == 2) {
                 this_package.setDescription((String) aValue);
+            }
+            if (columnIndex == 1) {
+                LengthCellValue value = (LengthCellValue) aValue;
+                value.setDisplayNativeUnits(true);
+                Length length = value.getLength();
+                Length oldLength = this_package.getHeight();
+                if (length.getUnits() == null) {
+                    if (oldLength != null) {
+                        length.setUnits(oldLength.getUnits());
+                    }
+                    if (length.getUnits() == null) {
+                        length.setUnits(Configuration.get().getSystemUnits());
+                    }
+                }
+                this_package.setHeight(length);
             }
         }
         catch (Exception e) {
@@ -91,6 +109,9 @@ public class PackagesTableModel extends AbstractTableModel implements PropertyCh
             case 0:
                 return this_package.getId();
             case 1:
+                return this_package.getHeight();
+
+            case 2:
                 return this_package.getDescription();
             default:
                 return null;
