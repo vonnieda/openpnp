@@ -94,8 +94,22 @@ public class Footprint {
 
     public void setBodyHeight(double bodyHeight) {
         this.bodyHeight = bodyHeight;
-    }
-
+    }    
+        
+    public double getBodyArea()
+    	{
+    	return getBodyHeight()*getBodyWidth();
+    	}
+    
+    public double getMinusRatio()
+    	{
+    	double ratio = getBodyHeight() /getBodyWidth();
+    	if (ratio <1.0) {
+    		return ratio;
+    	}
+    	return 1/ratio;
+    	
+    	}
 
 
     public static class Pad {

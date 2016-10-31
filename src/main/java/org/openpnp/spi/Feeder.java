@@ -76,4 +76,11 @@ public interface Feeder extends Identifiable, Named, WizardConfigurable, Propert
     public void feed(Nozzle nozzle) throws Exception;
     
     public int getRetryCount();
+
+// FCA in the code of openPnp, this equality appears multiple time, but for the use of LooseFeeder, 
+// this equality is overriden with other criterium.
+
+    
+    public default boolean canHandle(Part candidate)  { return candidate== getPart(); }
+
 }
