@@ -19,6 +19,7 @@
 
 package org.openpnp.spi;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.Closeable;
 
@@ -116,4 +117,12 @@ public interface Camera extends HeadMountable, WizardConfigurable,
     public long getSettleTimeMs();
 
     public void setSettleTimeMs(long settleTimeMs);
+    
+    /**
+     * (FCA) Change the luminosity 
+     */
+    public default void setLightingColor(Color color) {}
+    
+    public default Color getLightingColor() { return Color.black; }
+    
 }
