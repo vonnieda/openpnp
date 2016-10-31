@@ -98,8 +98,26 @@ public class MaskHsv extends CvStage {
         Scalar color = FluentCv.colorToScalar(Color.black);
         mask.setTo(color);
         masked.setTo(color);
-        Core.inRange(mat, new Scalar(hueMin, saturationMin, valueMin), new Scalar(hueMax, saturationMax, valueMax), mask);
-        Core.bitwise_not(mask, mask);
+// FCA Change to have the possibility to work inside the interval or outside (when min>max)
+        Scalar min;
+        Scalar max;
+        if (hueMin <= hueMax)
+        	{
+        	min = new Scalar(hueMin, saturationMin, valueMin); 
+        	max = new Scalar(hueMax, saturationMax, valueMax);
+        	}
+        else
+        	{
+        	min = new Scalar(hueMax, saturationMin, valueMin); 
+        	max = new Scalar(hueMin, saturationMax, valueMax);
+        	}
+        Core.inRange(mat, min, max, mask);
+        
+        if (hueMin <= hueMax)
+        	{
+        	Core.bitwise_not(mask, mask);
+        	}
+
         mat.copyTo(masked, mask);
         return new Result(masked);
     }
