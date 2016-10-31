@@ -114,8 +114,8 @@ public class ReferenceBottomVisionPartConfigurationWizard extends AbstractConfig
 
         PartAlignment.PartAlignmentOffset alignmentOffset = bottomVision.findOffsets(part, null, null, nozzle);
         Location offsets = alignmentOffset.getLocation();
-
-        if (!chckbxCenterAfterTest.isSelected()) {
+// FCA problem with the previous code, in some case the nozzle move driectly from (X0,Y0,Z0) -> (X1,Y1,Z1) !!Z0!=Z1 
+        if (!chckbxCenterAfterTest.isSelected() || !isEnabled() || !partSettings.isEnabled()) {
             return;
         }
 
