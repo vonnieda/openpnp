@@ -20,7 +20,9 @@
 package org.openpnp.gui;
 
 import java.awt.BorderLayout;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.prefs.Preferences;
@@ -51,6 +53,7 @@ import org.openpnp.gui.components.ClassSelectionDialog;
 import org.openpnp.gui.support.ActionGroup;
 import org.openpnp.gui.support.Helpers;
 import org.openpnp.gui.support.Icons;
+import org.openpnp.gui.support.IdentifiableTableCellRenderer;
 import org.openpnp.gui.support.MessageBoxes;
 import org.openpnp.gui.support.Wizard;
 import org.openpnp.gui.support.WizardContainer;
@@ -138,8 +141,20 @@ public class FeedersPanel extends JPanel implements WizardContainer {
         });
         panel_1.add(searchTextField);
         searchTextField.setColumns(15);
-        table = new AutoSelectTextTable(tableModel);
+        table = new AutoSelectTextTable(tableModel)
+        		{
+
+					@Override
+					public String getToolTipText(MouseEvent event) {
+						
+						return fillToolTip(event);
+					}
+        	
+        		};
         tableSorter = new TableRowSorter<>(tableModel);
+        
+
+        
 
         final JSplitPane splitPane = new JSplitPane();
         splitPane.setContinuousLayout(true);
@@ -211,7 +226,7 @@ public class FeedersPanel extends JPanel implements WizardContainer {
         else {
             table.getSelectionModel().clearSelection();
             for (int i = 0; i < tableModel.getRowCount(); i++) {
-                if (tableModel.getFeeder(i).getPart() == part) {
+                if (tableModel.getFeeder(i)==feeder) {
                     table.getSelectionModel().setSelectionInterval(0, i);
                     break;
                 }
@@ -220,8 +235,16 @@ public class FeedersPanel extends JPanel implements WizardContainer {
     }
 
     private Feeder findFeeder(Part part) {
+// FCA proceed with search process with 2 pass. First pass, if the feeder is enabled, (the priority),
+// For the second pass, if a anything feeder can accept the part
+
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (tableModel.getFeeder(i).getPart() == part) {
+            if (tableModel.getFeeder(i).canHandle(part) && tableModel.getFeeder(i).isEnabled()) {
+                return tableModel.getFeeder(i);
+            }
+        }
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if (tableModel.getFeeder(i).canHandle(part)) {
                 return tableModel.getFeeder(i);
             }
         }
@@ -435,4 +458,26 @@ public class FeedersPanel extends JPanel implements WizardContainer {
             }.start();
         }
     };
+    
+    private String fillToolTip(MouseEvent mouseEvent)
+    {
+// Fca classic search inside a table model
+        int row = table.rowAtPoint(new Point(mouseEvent.getX(), mouseEvent.getY()));
+        int col = table.columnAtPoint(new Point(mouseEvent.getX(), mouseEvent.getY()));
+        row = table.convertRowIndexToModel(row);
+        col = table.convertColumnIndexToModel(col);
+// FCA if mouse is pointed on the part row, give to user the characteristic of package.
+// Very interesting to know in real time the possibility of acceptance for the feeder.         
+        if (tableModel.getColumnName(col) == "Part") {
+        	tableModel.getFeeder(row).getPart();
+        	Part p = tableModel.getFeeder(row).getPart();
+            if (p != null) {
+                return String.format("Name %s, Height %s, Package %s",
+                        p.getName() == null ? "(None)" : p.getName(), p.getHeight(),
+                        p.getPackage().getId());
+            }
+        }
+     return null;	
+    }
+
 }
