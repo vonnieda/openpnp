@@ -34,9 +34,15 @@ public class FootprintReticle implements Reticle {
     private Color color;
     private Footprint footprint;
 
+// FCA Increase the size of thickness because it's hard to distinguish with the camera image 
+// @TODO put this for serialization. 
+
+    private int thickness;
+
     public FootprintReticle(Footprint footprint) {
         this.footprint = footprint;
         this.color = Color.yellow;
+        this.thickness=3;
     }
 
     @Override
@@ -44,7 +50,7 @@ public class FootprintReticle implements Reticle {
             double cameraUnitsPerPixelX, double cameraUnitsPerPixelY, double viewPortCenterX,
             double viewPortCenterY, int viewPortWidth, int viewPortHeight, double rotation) {
 
-        g2d.setStroke(new BasicStroke(1f));
+        g2d.setStroke(new BasicStroke(thickness));
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setColor(color);
 
