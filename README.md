@@ -40,7 +40,3 @@ creates high quality, professional installers for Java applications.
 
 More information at http://www.ej-technologies.com/products/install4j/overview.html.
 
-test
-
-test
-
